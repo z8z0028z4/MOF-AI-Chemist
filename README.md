@@ -1,37 +1,73 @@
-# AI Research Assistant
+# MOF-AI-Chemist
 
-A React + FastAPI research assistant for chemistry and materials-science workflows. Linux/WSL is the active development path; Windows launch and installer notes are retained as a future user/demo path and are not treated as verified release evidence.
+MOF-AI-Chemist is an open-source AI research assistant for chemistry and materials science. It helps turn research questions into structured literature, chemical, proposal, and metal-organic framework (MOF) workflows.
 
-## Current rough release candidate: Version A Demo
+The project bridges natural-language research goals with evidence-aware research exploration and computational materials workflows. Provider-backed paths can use configured external services or local project engines; the explicit Offline Demo mode uses deterministic fixtures instead, so readers can distinguish a click-through demonstration from real provider, network, or engine validation.
 
-This checkout contains the rough Version A Demo candidate. The user-facing contract is deliberately small:
+## Features
 
-- Settings exposes one unified **Demo mode** switch.
-- When the switch is ON, the Demo path covers Proposal, Property Prediction, Generate New Idea/Revision, and Experiment Detail.
-- When the switch is OFF, those stages use their real paths.
-- The persisted `mock_*` fields and `DEMO_MOCK_*` environment variables are internal/test-only compatibility surfaces, not additional user controls.
-- Demo responses use explicit deterministic fixtures. The MOF path includes ten synthetic CIF fixtures and precomputed XRD patterns for offline application/API tests.
+### Literature and knowledge
 
-Application/API evidence is recorded in `tests/test_demo_cross_stage_handoffs.py` and `tests/test_unified_demo_smoke.py`. Those tests use local deterministic doubles and do not prove browser rendering, provider/network behavior, subprocess execution, engine-real results, Windows packaging, or a packaged CIF path.
+- Search local literature and Europe PMC results.
+- Upload research documents for metadata extraction and text chunking.
+- Query the knowledge base with citations and source context.
 
-### Open release gates
+### AI-assisted research planning
 
-The following are intentionally still open for this rough candidate:
+- Draft structured research proposals.
+- Extract chemical and material information from research content.
+- Explain or revise selected text and organize experiment details.
+- Produce export-oriented proposal and research outputs.
 
-- Browser visual/user click-through, including the Settings switch and MOF CIF/XRD UI.
-- Windows packaging and installer execution. This checkout has no verified `packaging/` release directory.
-- Engine-real PMTransformer/PORMAKE execution and packaged-asset path verification.
-- A separately scoped provider smoke for production model compatibility.
+### Chemistry utilities
 
-Do not describe the Demo as browser-validated, Windows-ready, engine-real, or production-ready until those gates have their own evidence.
+- Look up chemical properties and safety fields.
+- Work with PubChem-shaped chemical records.
+- Display SMILES and chemical structures for supported compounds.
 
-### Known production-mode generation failure (documentation-only)
+### MOF workflow
 
-Some production structured-generation paths still reference Gemini preview model names such as `gemini-3-pro-preview` and `gemini-3-flash-preview`. A bounded audit recorded a provider `404 NOT_FOUND`/decommissioning failure for that path. This candidate documents the limitation only: it does not select a replacement model or change provider/generation code. Model repair requires a separately scoped opt-in provider smoke with credentials and independent review.
+- Interpret proposal content into candidate metals and linkers.
+- Pair candidates through the PORMAKE integration boundary.
+- Generate and view CIF structures.
+- Connect property-prediction workflows at their integration boundary.
+- Calculate and present X-ray diffraction (XRD) patterns.
 
-## Linux/WSL-first development
+### Provider and configuration layer
 
-Use the repository root for the following commands. The current checked path uses Python 3.11 and Node.js 16 or newer.
+- React frontend and FastAPI backend boundaries keep UI, API, and research services separated.
+- Configure model and provider settings for optional real-provider paths.
+- Keep user-generated papers, uploads, indexes, parsed chemicals, and MOF runs under the private runtime-data root rather than in source control.
+
+### Offline Demo mode
+
+Offline Demo mode is one explicit user-facing feature: turn on the unified **Demo mode** switch in Settings to click through supported workflows with deterministic local fixtures. The supported Demo path does not require an API key or network connection, and it keeps demo behavior separate from production provider calls.
+
+Demo fixtures are illustrative and non-experimental. They are not calibrated predictions, laboratory measurements, safety advice, or a validated synthesis procedure. Offline Demo mode is useful for reviewing UI and application/API handoffs; it does not replace real-provider, browser, Windows-packaging, or engine-real validation.
+
+## Architecture
+
+The maintained application is the React + FastAPI path:
+
+```text
+frontend/                 React + Vite + Ant Design
+  src/pages/              Route-level screens
+  src/components/         Reusable UI components
+  src/contexts/           Shared frontend state
+  src/services/           Frontend API/service helpers
+
+backend/                  FastAPI application
+  api/routes/             HTTP boundaries and request validation
+  api/models/             Pydantic request/response schemas
+  services/               Research workflows and external API orchestration
+  services/analysis/      Scientific analysis routines
+  core/                   Configuration, LLM, retrieval, and generation infrastructure
+  workers/                MOF and analysis worker boundaries
+```
+
+## Quick start
+
+Linux/WSL is the primary development path. Python 3.10–3.12 and Node.js 16 or newer are supported project targets. From the repository root:
 
 ```bash
 python3 -m venv .venv
@@ -43,21 +79,13 @@ npm install
 cd ..
 ```
 
-The root `requirements.txt` is the authoritative Python dependency source. Frontend dependencies are declared by `frontend/package.json` and its lockfile. No dependency or lockfile update is required for this Demo candidate; do not run an automatic dependency mutation such as `npm audit fix` as release preparation.
-
-### Launch
-
 Start the backend and Vite development server together:
 
 ```bash
 ./start_react.sh
 ```
 
-The combined script requires `.venv`, starts the backend on port 8000, starts Vite, and writes generated logs under `logs/`. Use the frontend URL printed by Vite or recorded in `logs/frontend.log`; do not assume a fixed frontend port. Backend API documentation is available at:
-
-```text
-http://localhost:8000/api/docs
-```
+The script starts the backend on port 8000 and prints the Vite frontend URL. It writes generated logs under `logs/`; use the URL printed by Vite rather than assuming a fixed frontend port. Backend API documentation is available at `http://localhost:8000/api/docs`, and the health endpoint is `http://localhost:8000/health`.
 
 For backend-only development:
 
@@ -65,22 +93,20 @@ For backend-only development:
 ./run_backend.sh
 ```
 
-Stop services started by the combined script with `Ctrl+C`. Do not kill unrelated Python or Node processes.
+Production provider paths may require credentials configured through the supported Settings/environment flow. Do not commit `.env` files, API keys, tokens, or generated user data. Offline Demo mode is the no-key path for supported click-through workflows.
 
-## Verification commands
+## Verification
 
-The repository intends `not external` to be the safe backend loop. The current
-rough candidate still has a test-isolation gap: the latest run emitted outbound
-Gemini requests from existing real-path tests even though the tests were not
-marked `external`. Treat this command as a regression loop, not as proof that
-the checkout makes no provider calls.
+The repository uses layered tests. Default tests should use local fixtures or fakes; real provider and network checks are opt-in and marked `external`.
+
+Backend import and safe test loop:
 
 ```bash
 .venv/bin/python -c "import backend.main; print('backend.main import ok')"
 .venv/bin/pytest -c tests/pytest.ini -m "not external" --tb=short -q
 ```
 
-Run the focused Version A Demo tests:
+Focused Demo workflow checks:
 
 ```bash
 .venv/bin/pytest -c tests/pytest.ini \
@@ -88,47 +114,27 @@ Run the focused Version A Demo tests:
   tests/test_unified_demo_smoke.py -q
 ```
 
-Run the frontend checks from `frontend/`:
+Frontend checks:
 
 ```bash
+cd frontend
 npm run lint
 npm run build
 npm run test:proposal-demo
 npm run test:mof
 ```
 
-Latest local candidate check (2026-08-10): the backend import passed; the
-focused Demo/fixture set passed 84 tests; the full `not external` selection
-passed 327 tests, skipped 1, and retained 5 known path-drift failures in the
-paper-download tests. Frontend lint passed. The first default-heap build hit
-the Node heap limit; `NODE_OPTIONS=--max-old-space-size=4096 npm run build`
-passed with existing Vite bundle warnings. The two frontend fixture checks
-passed (proposal fixtures and six CIF-charge parser assertions).
+These commands provide local application, API, fixture, and static-build evidence. Browser click-through, Windows packaging, real provider compatibility, and engine-real MOF validation remain separate gates and should be reported with their own evidence.
 
-These checks provide local application, API, static-build, and fixture
-evidence. They do not substitute for the open browser, Windows, engine-real,
-or external-provider gates above. Real-provider checks are opt-in and must be
-marked `external`; never put API keys in source control.
+## Project status
 
-## Product surfaces
+This is an active-development public snapshot. The main product workflows and the Offline Demo path are being stabilized, while provider compatibility, browser validation, Windows packaging, and real-engine MOF validation remain separate workstreams. The repository does not claim production readiness or validated laboratory use.
 
-The maintained application is the React + FastAPI path:
+## Documentation and notices
 
-- Proposal drafting, revision, citations, and experiment-detail workflows.
-- Literature search, knowledge queries, chemical lookup, and document upload.
-- MOF CIF viewing/generation, property prediction, and XRD presentation.
-- Settings for provider configuration and the unified Demo switch.
-
-Demo fixtures are separate from production provider code. User-generated papers, uploads, vector indexes, parsed chemicals, MOF runs, and other runtime data belong under the configured `local_data/` root and must not be committed.
-
-## Documentation map
-
-- `AGENTS.md` — agent and repository contract.
-- `CONTRIBUTING.md` — human development workflow.
-- `tests/README_TESTING.md` — test markers and safe/external test policy.
-- `docs/demo-mode-spec.md` — Version A behavior specification.
-- `docs/demo-v1-windows-installer.md` and `docs/windows-demo-release-sop.md` — future Windows packaging/release planning; not proof of a working installer.
-
-## License
-
-This project is licensed under the MIT License; see `LICENSE`.
+- [Contributing guide](CONTRIBUTING.md) — development setup and workflow.
+- [Demo mode specification](docs/demo-mode-spec.md) — the unified Demo switch and fixture-backed behavior.
+- [Testing guide](tests/README_TESTING.md) — test layers, markers, and external-service policy.
+- [Verification baseline](docs/verification-baseline.md) — public verification boundaries and evidence.
+- [Third-party notices](THIRD_PARTY_NOTICES.md) — license and provenance information for bundled or derived assets.
+- [MIT License](LICENSE).
