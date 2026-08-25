@@ -13,6 +13,7 @@ from openai import OpenAI
 from backend.utils.logger import get_logger
 from backend.utils.exceptions import LLMError, APIRequestError
 from backend.core import demo_config
+from backend.core.tls import tls_verify_setting
 
 # 嘗試導入 Gemini 客戶端，如果 google-genai 未安裝則優雅處理
 try:
@@ -41,7 +42,10 @@ class LLMClient:
     def _initialize_client(self):
         """初始化 OpenAI 和 Gemini 客戶端"""
         try:
-            self.client = OpenAI()
+            import httpx
+            self.client = OpenAI(
+                http_client=httpx.Client(verify=tls_verify_setting())
+            )
 
             # 僅在 google-genai 安裝時初始化 Gemini 客戶端
             if HAS_GEMINI and GeminiClient is not None:
@@ -49,28 +53,6 @@ class LLMClient:
             else:
                 self.gemini_client = None
                 logger.warning("⚠️ Gemini 客戶端未初始化（google-genai 模組未安裝）")
-
-            # 添加 SSL 驗證禁用選項，解決企業網路環境的證書問題
-            import httpx
-            import os
-
-            # 檢查環境變數，允許用戶控制 SSL 驗證
-            disable_ssl_verify = os.getenv('DISABLE_SSL_VERIFY', 'false').lower() == 'true'
-            if disable_ssl_verify:
-                self.client._client = httpx.Client(verify=False)
-                logger.warning("⚠️ SSL 驗證已禁用（環境變數控制）")
-            else:
-                # 嘗試使用預設設置，如果失敗則自動禁用
-                try:
-                    # 測試連接
-                    test_client = httpx.Client()
-                    test_client.close()
-                except Exception as e:
-                    if "certificate verify failed" in str(e).lower():
-                        self.client._client = httpx.Client(verify=False)
-                        logger.warning("⚠️ 檢測到 SSL 證書問題，自動禁用 SSL 驗證")
-                    else:
-                        raise e
         except Exception as e:
             logger.error(f"初始化 OpenAI 客戶端失敗: {e}")
             raise

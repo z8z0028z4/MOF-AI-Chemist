@@ -33,6 +33,7 @@ import time
 import random
 import os
 import logging
+from backend.core.tls import tls_verify_setting
 
 # 配置日誌
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ def _query_by_doi(base_url, doi, fields, max_retries, api_key=None):
                 logger.info(f"   💤 等待 {delay:.1f} 秒後重試...")
                 time.sleep(delay)
 
-            response = requests.get(url, headers=headers, verify=False, timeout=15)
+            response = requests.get(url, headers=headers, verify=tls_verify_setting(), timeout=15)
 
             if response.status_code == 200:
                 data = response.json()
@@ -164,7 +165,7 @@ def _query_by_title(base_url, title, fields, max_retries, api_key=None):
                 search_url,
                 params=params,
                 headers=headers,
-                verify=False,
+                verify=tls_verify_setting(),
                 timeout=20  # 增加超時時間
             )
 

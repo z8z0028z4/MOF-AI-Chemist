@@ -19,9 +19,9 @@ AI 研究助理 - Europe PMC醫學文獻數據庫處理模塊
 """
 
 import requests
-import warnings
 from typing import List, Dict
 import os
+from backend.core.tls import tls_verify_setting
 # 兼容性導入：支持相對導入和絕對導入
 try:
     from .document_renamer import sanitize_filename
@@ -30,8 +30,6 @@ except ImportError:
     from document_renamer import sanitize_filename
 
 # ==================== 警告配置 ====================
-# 忽略未驗證HTTPS請求的警告
-warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 
 def build_pdf_candidate_urls(pmcid: str, pdf_url: str = "") -> List[str]:
@@ -97,7 +95,7 @@ def search_source(keywords: List[str], limit: int = 5, or_batch: int = 30) -> Li
         url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query={query}&format=json&pageSize={or_batch}"
 
         # 發送HTTP請求
-        response = requests.get(url, verify=False)
+        response = requests.get(url, verify=tls_verify_setting())
 
         # 檢查響應狀態
         if response.status_code != 200:
@@ -229,7 +227,7 @@ def download_and_store(record: Dict, folder: str) -> str:
             r = requests.get(
                 candidate_url,
                 timeout=15,
-                verify=False,
+                verify=tls_verify_setting(),
                 headers=headers,
                 allow_redirects=True
             )
@@ -267,7 +265,7 @@ def validate_europepmc_api():
     """
     try:
         test_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=test&format=json&pageSize=1"
-        response = requests.get(test_url, verify=False, timeout=10)
+        response = requests.get(test_url, verify=tls_verify_setting(), timeout=10)
 
         if response.status_code == 200:
             data = response.json()
@@ -303,7 +301,7 @@ def get_publication_info(pmcid: str) -> Dict:
     """
     try:
         url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=PMCID:{pmcid}&format=json"
-        response = requests.get(url, verify=False, timeout=10)
+        response = requests.get(url, verify=tls_verify_setting(), timeout=10)
 
         if response.status_code == 200:
             data = response.json()
@@ -345,7 +343,7 @@ def search_by_doi(doi: str) -> Dict:
     """
     try:
         url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=DOI:{doi}&format=json"
-        response = requests.get(url, verify=False, timeout=10)
+        response = requests.get(url, verify=tls_verify_setting(), timeout=10)
 
         if response.status_code == 200:
             data = response.json()
