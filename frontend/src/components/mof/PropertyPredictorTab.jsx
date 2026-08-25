@@ -51,6 +51,7 @@ import {
   browseCheckpoints,
   verifyCheckpoint,
 } from '../../services/mofApi'
+import { createProfileRefreshGuard, resolveProfileSelection } from './profileSelection'
 
 const { Title, Text, Paragraph } = Typography
 const { Panel } = Collapse
@@ -173,6 +174,10 @@ const PropertyPredictorTab = ({ onPreviewCif, lastGeneratorRunId, activeJobId, o
   // Polling refs
   const installPollRef = useRef(null)
   const jobPollRef = useRef(null)
+  const profileRefreshGuardRef = useRef(null)
+  if (!profileRefreshGuardRef.current) {
+    profileRefreshGuardRef.current = createProfileRefreshGuard()
+  }
 
   // 1. Fetch env status, profiles, and set defaults
   const loadEnvStatus = useCallback(async () => {
@@ -231,14 +236,14 @@ const PropertyPredictorTab = ({ onPreviewCif, lastGeneratorRunId, activeJobId, o
   }
 
   const loadProfiles = useCallback(async () => {
+    const refreshToken = profileRefreshGuardRef.current.begin()
     try {
       const res = await getPropertyPredictorProfiles()
-      setProfiles(res.profiles || [])
-      if (res.default_profile_id) {
-        setSelectedProfile(res.default_profile_id)
-      } else if (res.profiles?.length > 0) {
-        setSelectedProfile(res.profiles[0].id)
-      }
+      if (!profileRefreshGuardRef.current.isCurrent(refreshToken)) return
+      const nextProfiles = Array.isArray(res.profiles) ? res.profiles : []
+      const nextSelectedProfile = resolveProfileSelection(nextProfiles, res.default_profile_id)
+      setProfiles(nextProfiles)
+      setSelectedProfile(nextSelectedProfile)
     } catch (err) {
       console.error('Failed to load profiles:', err)
     }
@@ -282,11 +287,28 @@ const PropertyPredictorTab = ({ onPreviewCif, lastGeneratorRunId, activeJobId, o
   }, [])
 
   useEffect(() => {
+    profileRefreshGuardRef.current.activate()
     loadEnvStatus()
     loadProfiles()
     return () => {
+      profileRefreshGuardRef.current.dispose()
       if (installPollRef.current) clearInterval(installPollRef.current)
       if (jobPollRef.current) clearInterval(jobPollRef.current)
+    }
+  }, [loadEnvStatus, loadProfiles])
+
+  useEffect(() => {
+    const handleDemoConfigUpdated = () => {
+      // Invalidate the previous mode's profile before the async refresh returns.
+      setProfiles([])
+      setSelectedProfile(null)
+      loadEnvStatus()
+      loadProfiles()
+    }
+
+    window.addEventListener('demo-config-updated', handleDemoConfigUpdated)
+    return () => {
+      window.removeEventListener('demo-config-updated', handleDemoConfigUpdated)
     }
   }, [loadEnvStatus, loadProfiles])
 
@@ -465,7 +487,8 @@ const PropertyPredictorTab = ({ onPreviewCif, lastGeneratorRunId, activeJobId, o
   const isDemoCanned = envStatus?.version === 'demo-canned'
 
   const handlePredict = async () => {
-    if (!selectedProfile) {
+    const selectedProfileIsValid = profiles.some((profile) => profile.id === selectedProfile)
+    if (!selectedProfile || !selectedProfileIsValid || (!isDemoCanned && selectedProfile === 'demo-canned-property-profile')) {
       message.warning('請選擇模型 Profile！')
       return
     }
