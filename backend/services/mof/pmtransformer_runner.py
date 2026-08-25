@@ -10,6 +10,7 @@ from backend.services.mof_settings_service import (
     get_mof_private_settings_path,
 )
 from backend.core import demo_config
+from backend.services.mof.griday_builder import discover_griday_root, ensure_griday_compatible
 
 _ACTIVE_PROCESSES: dict[str, subprocess.Popen] = {}
 _PROCESS_LOCK = threading.Lock()
@@ -241,6 +242,26 @@ class PmTransformerRunner:
                     "failed",
                     progress=1.0,
                     message="Refusing to launch pmtransformer subprocess: demo mode is active for property prediction",
+                )
+                return
+
+            try:
+                griday_root = discover_griday_root(python_exe)
+                griday_status = ensure_griday_compatible(griday_root)
+            except Exception as exc:
+                self.run_store.update_status(
+                    run_id,
+                    "failed",
+                    progress=1.0,
+                    message=f"GRIDAY readiness check failed: {exc}",
+                )
+                return
+            if not griday_status.ready:
+                self.run_store.update_status(
+                    run_id,
+                    "failed",
+                    progress=1.0,
+                    message=f"GRIDAY is not ready: {griday_status.error}",
                 )
                 return
 

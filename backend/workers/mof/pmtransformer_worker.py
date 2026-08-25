@@ -55,6 +55,28 @@ def _clean_cif_file(cif_path: Path):
         sys.stderr.write(f"Warning: Failed to clean CIF file {cif_path}: {e}\n")
 
 
+def _preparation_diagnostic(filename: str, run_dir: Path) -> str | None:
+    """Return the latest upstream logger message for one CIF, when available."""
+    names = {filename, Path(filename).stem}
+    candidates = [Path.cwd() / "prepare_data.log", Path.cwd() / "prepare_energy_grid.log"]
+    candidates.extend([run_dir / "prepare_data.log", run_dir / "prepare_energy_grid.log"])
+    messages = []
+    for log_path in candidates:
+        if not log_path.is_file():
+            continue
+        try:
+            for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                if any(name in line for name in names) and ("failed" in line.lower() or "error" in line.lower()):
+                    messages.append(line.split(" - ", 3)[-1].strip())
+        except OSError:
+            continue
+    return messages[-1] if messages else None
+
+
+def _format_preparation_exception(filename: str, error: Exception) -> str:
+    return f"{filename}: {type(error).__name__}: {error}"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--request", required=True)
@@ -140,7 +162,8 @@ def main():
                     {
                         "filename": path.name,
                         "error_code": "PREPARATION_FAILED",
-                        "message": "make_prepared_data failed to extract features",
+                        "message": _preparation_diagnostic(path.name, run_dir)
+                        or "make_prepared_data failed to extract features",
                     }
                 )
         except Exception as e:
@@ -148,7 +171,7 @@ def main():
                 {
                     "filename": path.name,
                     "error_code": "PREPARATION_FAILED",
-                    "message": str(e),
+                    "message": _format_preparation_exception(path.name, e),
                 }
             )
 

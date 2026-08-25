@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, Optional
 from backend.config import MOF_DATA_DIR
+from backend.services.mof.griday_builder import discover_griday_root, ensure_griday_compatible
 
 
 class ToolEnvService:
@@ -60,11 +61,32 @@ class ToolEnvService:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 version = result.stdout.strip()
+                griday_status = None
+                if tool == "pmtransformer":
+                    try:
+                        griday_root = discover_griday_root(python_exe)
+                        griday_status = ensure_griday_compatible(griday_root)
+                    except Exception as exc:
+                        return {
+                            "ready": False,
+                            "installed": True,
+                            "version": version,
+                            "error": f"GRIDAY readiness check failed: {exc}",
+                        }
+                    if not griday_status.ready:
+                        return {
+                            "ready": False,
+                            "installed": True,
+                            "version": version,
+                            "error": f"GRIDAY is not ready: {griday_status.error}",
+                        }
                 return {
                     "ready": True,
                     "installed": True,
                     "version": version,
-                    "error": None
+                    "error": None,
+                    **({"griday": {"root": str(griday_status.root), "rebuilt": griday_status.rebuilt}}
+                       if griday_status else {}),
                 }
             else:
                 return {
@@ -295,6 +317,17 @@ class ToolEnvService:
                         )
                 if res.returncode != 0:
                     raise RuntimeError(f"Failed to install packages for {tool}")
+
+                if tool == "pmtransformer":
+                    log_file.write("Checking GRIDAY binary compatibility...\n")
+                    log_file.flush()
+                    griday_root = discover_griday_root(python_exe)
+                    griday_status = ensure_griday_compatible(griday_root)
+                    if not griday_status.ready:
+                        raise RuntimeError(f"GRIDAY readiness failed: {griday_status.error}")
+                    log_file.write(
+                        f"GRIDAY ready at {griday_status.root} (rebuilt={griday_status.rebuilt})\n"
+                    )
 
                 with self._lock:
                     self._install_status[tool]["status"] = "success"
