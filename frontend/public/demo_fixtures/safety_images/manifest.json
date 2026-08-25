@@ -1,0 +1,185 @@
+{
+  "assets": [
+    {
+      "cid": 18616,
+      "ghs_icons": [
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs03.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS03.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "8d4b953e63ac2b3e0f346f367eecfa3b8014f008a3199cd47719b7ab7dffc803",
+          "bytes": 3336
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs05.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "c7cfafdfd977532ffe35a6054705432e3df97c1759eaa9f2117f12d602923a20",
+          "bytes": 13531
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs06.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "fa76c689f464f89335bf691f4760ad1a5a7c236fbd591a988fd60639d08c6aed",
+          "bytes": 12588
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs07.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "d30496410eb4808d19b0fa24e9a0079d800f4e5b3feffe82b7036aacc57746de",
+          "bytes": 1675
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs09.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "f9e2a2d54deb59cb0f70fca794c059524022c04cc38de8d7a07b51a2a3b1486a",
+          "bytes": 5466
+        }
+      ],
+      "nfpa_image": null
+    },
+    {
+      "cid": 11138,
+      "ghs_icons": [
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs07.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "d30496410eb4808d19b0fa24e9a0079d800f4e5b3feffe82b7036aacc57746de",
+          "bytes": 1675
+        }
+      ],
+      "nfpa_image": null
+    },
+    {
+      "cid": 3776,
+      "ghs_icons": [
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs02.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "863b6f3224537a40f0a755a596e8ed1956fe8712181e0e38c5aa26a65629bef4",
+          "bytes": 2526
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs05.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "c7cfafdfd977532ffe35a6054705432e3df97c1759eaa9f2117f12d602923a20",
+          "bytes": 13531
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs07.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "d30496410eb4808d19b0fa24e9a0079d800f4e5b3feffe82b7036aacc57746de",
+          "bytes": 1675
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs08.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "f4f72dce1e8330cda7eaa1d711bc033596c9b6d5690b8ed51a4fd081f0cd8696",
+          "bytes": 15192
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs09.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS09.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "f9e2a2d54deb59cb0f70fca794c059524022c04cc38de8d7a07b51a2a3b1486a",
+          "bytes": 5466
+        }
+      ],
+      "nfpa_image": {
+        "local_url": "/demo_fixtures/safety_images/nfpa/nfpa-cid-3776.svg",
+        "source_url": "https://pubchem.ncbi.nlm.nih.gov/image/nfpa.cgi?code=130",
+        "content_type": "image/svg+xml",
+        "sha256": "b9873a7442eae8df4f94e653a0cc040b41ea30ea16742c297bc5eba716819f06",
+        "bytes": 766
+      }
+    },
+    {
+      "cid": 280,
+      "ghs_icons": [
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs04.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "ac3cd6d99025781073f19feb427e42869b08b7720f89232b06759bd10293ba6c",
+          "bytes": 1446
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs07.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "d30496410eb4808d19b0fa24e9a0079d800f4e5b3feffe82b7036aacc57746de",
+          "bytes": 1675
+        }
+      ],
+      "nfpa_image": null
+    },
+    {
+      "cid": 947,
+      "ghs_icons": [
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs04.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS04.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "ac3cd6d99025781073f19feb427e42869b08b7720f89232b06759bd10293ba6c",
+          "bytes": 1446
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs08.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "f4f72dce1e8330cda7eaa1d711bc033596c9b6d5690b8ed51a4fd081f0cd8696",
+          "bytes": 15192
+        }
+      ],
+      "nfpa_image": {
+        "local_url": "/demo_fixtures/safety_images/nfpa/nfpa-cid-947.svg",
+        "source_url": "https://pubchem.ncbi.nlm.nih.gov/image/nfpa.cgi?code=300",
+        "content_type": "image/svg+xml",
+        "sha256": "eed236ab86f3c9e20c5416730989c70d66787831fd2ebb24f4ad4e6b1963e8c5",
+        "bytes": 766
+      }
+    },
+    {
+      "cid": 702,
+      "ghs_icons": [
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs02.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS02.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "863b6f3224537a40f0a755a596e8ed1956fe8712181e0e38c5aa26a65629bef4",
+          "bytes": 2526
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs07.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS07.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "d30496410eb4808d19b0fa24e9a0079d800f4e5b3feffe82b7036aacc57746de",
+          "bytes": 1675
+        },
+        {
+          "local_url": "/demo_fixtures/safety_images/ghs/ghs08.svg",
+          "source_url": "https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS08.svg",
+          "content_type": "image/svg+xml",
+          "sha256": "f4f72dce1e8330cda7eaa1d711bc033596c9b6d5690b8ed51a4fd081f0cd8696",
+          "bytes": 15192
+        }
+      ],
+      "nfpa_image": {
+        "local_url": "/demo_fixtures/safety_images/nfpa/nfpa-cid-702.svg",
+        "source_url": "https://pubchem.ncbi.nlm.nih.gov/image/nfpa.cgi?code=230",
+        "content_type": "image/svg+xml",
+        "sha256": "8ab2436e86cdc1d32a8c6fa01f77663cf19aa954c8e025d3281511ffa07e212d",
+        "bytes": 766
+      }
+    }
+  ],
+  "retrieval_date": "2026-08-18"
+}

@@ -1,0 +1,76 @@
+{
+  "demo_disclaimer": "Illustrative Demo fixture only: non-experimental, not a validated synthesis procedure, and not safety instructions. Do not use these values or steps for laboratory work.",
+  "proposal": "Proposal: Solvent-Free Synthesis of Porous Cu-BTC MOF (HKUST-1) for Sustainable CO2 Capture\n\nResearch Goal: We propose a modified green, solvent-free synthesis of Cu-BTC (HKUST-1) using ethanol as a less toxic alternative washing solvent to methanol.\n\nDemo Revision Request applied: {feedback}\n\n[Need & Background]\nGlobal climate change driven by rising greenhouse gas emissions necessitates efficient carbon capture technologies. HKUST-1 (Cu-BTC) is promising for CO2 adsorption but conventional solvothermal synthesis requires hazardous organic solvents.\n\n[Solution]\nA solvent-free mechanochemical coordination approach: dry-grinding copper(II) nitrate trihydrate and BTC (1.5:1 molar ratio) for 15 minutes, then heating in a sealed autoclave at 120 degC for 3 hours. Unreacted starting materials are removed via centrifugal washing with ethanol instead of methanol.\n\n[Differentiation]\nProduces HKUST-1 with relative crystallinity up to 130% compared to commercial standards in just 3 hours at 120 degC, while utilizing low-toxicity ethanol instead of methanol for purification.\n\n[Benefit]\nReduces the E-factor of MOF production and adopts green ethanol for purification; CO2 adsorption capacity of 1.7 mmol/g at 30 degC and 1 bar.\n\n[Experimental Overview]\nSynthesize the Cu-BTC framework by dry grinding, followed by heating at 120 degC for 3 hours. Activate and purify by centrifugal washing with ethanol and dry overnight at 80 degC under vacuum.",
+  "chemicals": [
+    {
+      "cid": 18616,
+      "name": "copper dinitrate",
+      "formula": "CuN2O6",
+      "weight": "187.56",
+      "smiles": "[N+](=O)([O-])[O-].[N+](=O)([O-])[O-].[Cu+2]",
+      "query_name": "copper(II) nitrate",
+      "safety_icons": {"ghs_icons": [], "nfpa_image": null}
+    },
+    {
+      "cid": 11138,
+      "name": "benzene-1,3,5-tricarboxylic acid",
+      "formula": "C9H6O6",
+      "weight": "210.14",
+      "smiles": "C1=C(C=C(C=C1C(=O)O)C(=O)O)C(=O)O",
+      "query_name": "benzene-1,3,5-tricarboxylic acid",
+      "safety_icons": {"ghs_icons": [], "nfpa_image": null}
+    },
+    {
+      "cid": 702,
+      "name": "ethanol",
+      "formula": "C2H6O",
+      "weight": "46.07",
+      "smiles": "CCO",
+      "query_name": "ethanol",
+      "safety_icons": {"ghs_icons": [], "nfpa_image": null}
+    },
+    {
+      "cid": 280,
+      "name": "carbon dioxide",
+      "formula": "CO2",
+      "weight": "44.01",
+      "smiles": "C(=O)=O",
+      "query_name": "carbon dioxide",
+      "safety_icons": {"ghs_icons": [], "nfpa_image": null}
+    },
+    {
+      "cid": 947,
+      "name": "nitrogen",
+      "formula": "N2",
+      "weight": "28.01",
+      "smiles": "N#N",
+      "query_name": "nitrogen",
+      "safety_icons": {"ghs_icons": [], "nfpa_image": null}
+    }
+  ],
+  "not_found": [],
+  "citations": [],
+  "chunks": [],
+  "used_model": "demo-mode",
+  "structured_proposal": {
+    "proposal_title": "Ethanol-Washed Solvent-Free Synthesis of Porous Cu-BTC MOF (HKUST-1)",
+    "need": "Global climate change driven by rising greenhouse gas emissions necessitates efficient carbon capture technologies. HKUST-1 (Cu-BTC) is promising for CO2 adsorption but conventional solvothermal synthesis requires hazardous organic solvents.",
+    "solution": "A solvent-free mechanochemical coordination approach: dry-grinding copper(II) nitrate trihydrate and BTC (1.5:1 molar ratio) for 15 minutes, then heating in a sealed autoclave at 120 degC for 3 hours, with an ethanol wash instead of methanol.",
+    "differentiation": "Produces HKUST-1 with relative crystallinity up to 130% compared to commercial standards in just 3 hours at 120 degC, using low-toxicity ethanol for purification.",
+    "benefit": "Reduces the E-factor of MOF production and adopts green ethanol for purification; CO2 adsorption capacity of 1.7 mmol/g at 30 degC and 1 bar.",
+    "experimental_overview": "Prepare Cu-BTC via dry mechanochemical grinding followed by brief autoclave heating at 120 degC; purify with ethanol wash; evaluate CO2 uptake at 30 degC.",
+    "revision_explanation": "Substituted methanol with ethanol as the washing agent to mitigate toxicity, maintaining crystallinity and CO2 capture capacity.",
+    "materials_list": [
+      "copper(II) nitrate",
+      "benzene-1,3,5-tricarboxylic acid",
+      "ethanol",
+      "carbon dioxide",
+      "nitrogen"
+    ],
+    "mof_metal_element": "Cu",
+    "mof_linker_name": "benzene-1,3,5-tricarboxylic acid",
+    "mof_linker_name_2": "",
+    "mof_linker_smiles": "C1=C(C=C(C=C1C(=O)O)C(=O)O)C(=O)O",
+    "mof_linker_smiles_2": ""
+  }
+}

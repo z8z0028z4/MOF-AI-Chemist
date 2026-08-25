@@ -1,0 +1,44 @@
+{
+    "include": [
+        "app",
+        "backend"
+    ],
+    "exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "**/venv",
+        "**/.venv",
+        "**/.pytest_cache",
+        "**/tests"
+    ],
+    "ignore": [
+        "setup.py"
+    ],
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": false,
+    "reportUnusedImport": true,
+    "reportUnusedClass": true,
+    "reportUnusedFunction": true,
+    "reportUnusedVariable": true,
+    "reportDuplicateImport": true,
+    "reportOptionalSubscript": true,
+    "reportOptionalMemberAccess": true,
+    "reportOptionalCall": true,
+    "reportOptionalIterable": true,
+    "reportOptionalContextManager": true,
+    "reportOptionalOperand": true,
+    "pythonVersion": "3.8",
+    "pythonPlatform": "Windows",
+    "executionEnvironments": [
+        {
+            "root": "app",
+            "pythonVersion": "3.8",
+            "pythonPlatform": "Windows"
+        },
+        {
+            "root": "backend",
+            "pythonVersion": "3.8",
+            "pythonPlatform": "Windows"
+        }
+    ]
+}

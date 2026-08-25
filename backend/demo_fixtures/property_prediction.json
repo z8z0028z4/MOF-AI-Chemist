@@ -1,0 +1,34 @@
+{
+  "demo_disclaimer": "Synthetic illustrative prediction fixture only: not calibrated, not an experimental measurement, and not a validated model result. Do not use for scientific or engineering decisions.",
+  "pormake_candidate": {
+    "metal_id": "N409",
+    "metal_element": "Cu",
+    "organic_id": "N10",
+    "organic_role": "N",
+    "organic_coordination_number": 3,
+    "assembly_pattern": "N(metal)-N(organic)",
+    "match_kind": "exact",
+    "confidence": 0.98,
+    "covered_atom_fraction": 1,
+    "uncovered_elements": {},
+    "evidence": ["deterministic demo fixture"],
+    "warnings": [],
+    "port_modes": [],
+    "node_id": "N409",
+    "linker_id": "N10",
+    "auto_generatable": true,
+    "compatible_topologies": ["hbk", "mfj", "tfz", "ffc", "lil", "iab", "tfo", "sty", "tfn", "maw"]
+  },
+  "results": [
+    {"node_id": "N409", "linker_id": "N10", "topology": "hbk", "uptake": 1.2358, "unit": "mmol/g", "artifact_id": "pred-001", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "mfj", "uptake": 1.2285, "unit": "mmol/g", "artifact_id": "pred-002", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "tfz", "uptake": 1.0744, "unit": "mmol/g", "artifact_id": "pred-003", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "ffc", "uptake": 1.3671, "unit": "mmol/g", "artifact_id": "pred-004", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "lil", "uptake": 1.2001, "unit": "mmol/g", "artifact_id": "pred-005", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "iab", "uptake": 1.4585, "unit": "mmol/g", "artifact_id": "pred-006", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "tfo", "uptake": 1.1962, "unit": "mmol/g", "artifact_id": "pred-007", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "sty", "uptake": 1.1571, "unit": "mmol/g", "artifact_id": "pred-008", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "tfn", "uptake": 1.3873, "unit": "mmol/g", "artifact_id": "pred-009", "generator_run_id": "demo-generator-run", "is_demo": true},
+    {"node_id": "N409", "linker_id": "N10", "topology": "maw", "uptake": 1.2033, "unit": "mmol/g", "artifact_id": "pred-010", "generator_run_id": "demo-generator-run", "is_demo": true}
+  ]
+}

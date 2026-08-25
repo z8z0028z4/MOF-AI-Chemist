@@ -1,0 +1,323 @@
+{
+  "fixture_kind": "pormake-precomputed-demo-xrd",
+  "ownership": "repository-owned PORMAKE database-generated Demo data",
+  "disclaimer": "Synthetic, non-experimental illustrative data generated for offline Demo use; not measured PXRD and not a validated scientific result.",
+  "source_policy": "Each CIF was generated locally from PORMAKE database building blocks N409 and N10 for offline Demo use; it is not a user upload or third-party CIF.",
+  "generator": {
+    "calculator": "backend/workers/mof/xrd_calculator.py",
+    "calculator_library": "pymatgen 2026.5.4",
+    "command_template": "local_data/mof/tool_envs/pormake/bin/python backend/workers/mof/xrd_calculator.py --cif tests/test_data/mof/demo_cifs/<cif> --wavelength 1.5406 --max_two_theta 80 --fwhm 0.1",
+    "radiation": "Cu K-alpha",
+    "wavelength_angstrom": 1.5406,
+    "two_theta_range_degrees": [
+      5.0,
+      80.0
+    ],
+    "representation": "Gaussian-broadened powder XRD",
+    "fwhm_degrees": 0.1,
+    "profile_points": 1000
+  },
+  "slot_selection_rule": "Attempt hbk first; after passing build and validity gates, select the first nine other successful N409+N10 candidates in PORMAKE database topology catalog order.",
+  "entries": [
+    {
+      "cif_filename": "synthetic_demo_01.cif",
+      "xrd_filename": "synthetic_demo_01_xrd.json",
+      "source_cif_sha256": "d9facc5333c47b5a809d0706ab58cfb90f88a0931ecbb90a29567a4e8081ea51",
+      "xrd_sha256": "a567ff9f14b7e5a376634a48198c4348965fdda719fc437e016e9766df856e02",
+      "formula": "CuH3(C2O)4",
+      "topology": "hbk",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.23171798309044664,
+        "pormake_max_rmsd": 0.04792800454855294,
+        "pymatgen_final_cif": {
+          "sites": 768,
+          "formula": "CuH3(C2O)4",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/hbk_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_01_hbk_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_02.cif",
+      "xrd_filename": "synthetic_demo_02_xrd.json",
+      "source_cif_sha256": "24862b13b53e738a9c667dff88fba8ad1357223a3114a47bca41e0eb4d8d1b77",
+      "xrd_sha256": "313d8d87c1b268663b75fe60c5c61f9644cfacc119cbd5546f99e6e1d943c4e8",
+      "formula": "CuH3(C2O)4",
+      "topology": "mfj",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.1000474280387228,
+        "pormake_max_rmsd": 0.06198563771118584,
+        "pymatgen_final_cif": {
+          "sites": 384,
+          "formula": "CuH3(C2O)4",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_02_mfj_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_03.cif",
+      "xrd_filename": "synthetic_demo_03_xrd.json",
+      "source_cif_sha256": "e9d0876601c506ad626695db0ca3d452f6779f68c7d2e7a019e8fcc0521ec9ab",
+      "xrd_sha256": "33f0b35b580b4b5b8c77c3bc38160cf94801dd6f2a6f03f25503dc0cfa705974",
+      "formula": "CuH(CO)4",
+      "topology": "tfz",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.026662828121118577,
+        "pormake_max_rmsd": 0.0005883827649868223,
+        "pymatgen_final_cif": {
+          "sites": 60,
+          "formula": "CuH(CO)4",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_03_tfz_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_04.cif",
+      "xrd_filename": "synthetic_demo_04_xrd.json",
+      "source_cif_sha256": "be1e5747417c0cb5e30842f148230e3cc612519eec716db99d7be8e20499e8a9",
+      "xrd_sha256": "622c4f8bd67bd457bab8c0c1d997bbaa1207b1a96748bf4e0478b9997ce3a19a",
+      "formula": "CuH2(C3O2)2",
+      "topology": "ffc",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.09501539278255791,
+        "pormake_max_rmsd": 0.07519912850758612,
+        "pymatgen_final_cif": {
+          "sites": 78,
+          "formula": "CuH2(C3O2)2",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_04_ffc_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_05.cif",
+      "xrd_filename": "synthetic_demo_05_xrd.json",
+      "source_cif_sha256": "4d613d2428bbc64a9083e54a3ee4c75a8d12a0740d3480e3872ea96d74c90cb8",
+      "xrd_sha256": "2d9d61ae5461e3a132e7932bfa890615d210fc31bb57d9f6dcb8121eb1b135e4",
+      "formula": "CuH3(C2O)4",
+      "topology": "lil",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.058704498928054454,
+        "pormake_max_rmsd": 0.04376362438700695,
+        "pymatgen_final_cif": {
+          "sites": 128,
+          "formula": "CuH3(C2O)4",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_05_lil_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_06.cif",
+      "xrd_filename": "synthetic_demo_06_xrd.json",
+      "source_cif_sha256": "ff3cb3913a9f24677d07d07f28ad6923f54119eb475922137282ebe094f749ee",
+      "xrd_sha256": "17c67d555cd65e6f8095591eb24a1db3d898cd25fa2ffcfa5ec9c594b575acb5",
+      "formula": "CuH2(C3O2)2",
+      "topology": "iab",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.026662828308791322,
+        "pormake_max_rmsd": 0.02383615118712502,
+        "pymatgen_final_cif": {
+          "sites": 312,
+          "formula": "CuH2(C3O2)2",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_06_iab_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_07.cif",
+      "xrd_filename": "synthetic_demo_07_xrd.json",
+      "source_cif_sha256": "69f560619a8f38397f8f2132a06fa9735d2d512031744bfd5fc76d032f27d18f",
+      "xrd_sha256": "581b5193dea9ab233a4b598afcb56a995e9e8043606e81f6c2fdb5b8e597e533",
+      "formula": "Cu2H3(C5O4)2",
+      "topology": "tfo",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.04362903443835395,
+        "pormake_max_rmsd": 0.041620774479561876,
+        "pymatgen_final_cif": {
+          "sites": 184,
+          "formula": "Cu2H3(C5O4)2",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_07_tfo_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_08.cif",
+      "xrd_filename": "synthetic_demo_08_xrd.json",
+      "source_cif_sha256": "aa457f3b492292901e7d623f2d51ba76d6277ee8a24706614a012816b9f99caa",
+      "xrd_sha256": "53de159898430bd35f5b332c5bda4ba89681291a2f4adaaf2f6cd599ccc333d5",
+      "formula": "CuH3(C2O)4",
+      "topology": "sty",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.29093373506998743,
+        "pormake_max_rmsd": 0.047169734274344406,
+        "pymatgen_final_cif": {
+          "sites": 192,
+          "formula": "CuH3(C2O)4",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_08_sty_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_09.cif",
+      "xrd_filename": "synthetic_demo_09_xrd.json",
+      "source_cif_sha256": "e26940734f753a3f5f444c3267159d27bf39b05d7ca52012e28ed54679d579bb",
+      "xrd_sha256": "917265df8d2f991d6e5e85d3176fbbba76c197a549abe32019d1ac27e73aa5b4",
+      "formula": "Cu2H3(C5O4)2",
+      "topology": "tfn",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.038424516357146686,
+        "pormake_max_rmsd": 0.06065997398472382,
+        "pymatgen_final_cif": {
+          "sites": 92,
+          "formula": "Cu2H3(C5O4)2",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_09_tfn_xrd.log"
+      }
+    },
+    {
+      "cif_filename": "synthetic_demo_10.cif",
+      "xrd_filename": "synthetic_demo_10_xrd.json",
+      "source_cif_sha256": "314e17658f4b9ff0a02beb63597bf97076c75f87fe702a4449a1e6a23c8de25a",
+      "xrd_sha256": "f15bf8258e0a9060ffc381261dff42f41de61f7a418b87364b1be65dd7de47d7",
+      "formula": "CuH6(C7O2)2",
+      "topology": "maw",
+      "building_blocks": {
+        "node": "N409",
+        "node_cn": 4,
+        "linker": "N10",
+        "linker_cn": 3
+      },
+      "construction_rationale": "PORMAKE database-generated N409 + N10 framework selected by deterministic rule: hbk first after gates, then first nine other successful catalog-order candidates.",
+      "validity_evidence": {
+        "pormake_local_prefilter_rmsd": 0.126297091687471,
+        "pormake_max_rmsd": 0.0622113397121077,
+        "pymatgen_final_cif": {
+          "sites": 600,
+          "formula": "CuH6(C7O2)2",
+          "finite": true
+        },
+        "xrd_finite": true
+      },
+      "generator": {
+        "representation": "Gaussian-broadened powder XRD",
+        "pormake_command_log": "evidence/pormake-n409-n10/commands/catalog_pormake.log",
+        "xrd_command_log": "evidence/pormake-n409-n10/commands/slot_10_maw_xrd.log"
+      }
+    }
+  ]
+}

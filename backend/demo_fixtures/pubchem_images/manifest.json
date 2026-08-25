@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "source": "PubChem PUG image service",
+  "source_url_template": "https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid={cid}&t=l",
+  "assets": [
+    {
+      "cid": 18616,
+      "filename": "cid-18616.png",
+      "source_url": "https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=18616&t=l",
+      "content_type": "image/png",
+      "bytes": 1598,
+      "sha256": "54df5970d70f69e7ab8ee54cc2b084b5238195094e5e9d5b1a68ab1e5f695f18",
+      "retrieved_at": "2026-08-14"
+    },
+    {
+      "cid": 11138,
+      "filename": "cid-11138.png",
+      "source_url": "https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=11138&t=l",
+      "content_type": "image/png",
+      "bytes": 2340,
+      "sha256": "3efcccf8b3241f2a91a7cb117428fcc0432946cc4e0799c5d213b977778423fe",
+      "retrieved_at": "2026-08-14"
+    },
+    {
+      "cid": 3776,
+      "filename": "cid-3776.png",
+      "source_url": "https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=3776&t=l",
+      "content_type": "image/png",
+      "bytes": 953,
+      "sha256": "6c6473221824db9b4009d8f8662b04f0a92d3962e7061a16e0bacfacaf5605eb",
+      "retrieved_at": "2026-08-14"
+    },
+    {
+      "cid": 280,
+      "filename": "cid-280.png",
+      "source_url": "https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=280&t=l",
+      "content_type": "image/png",
+      "bytes": 1112,
+      "sha256": "d60a83f9dcdce4225426e40c20cc0f6699451c6f6e1e9eb757226d282833e094",
+      "retrieved_at": "2026-08-14"
+    },
+    {
+      "cid": 947,
+      "filename": "cid-947.png",
+      "source_url": "https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=947&t=l",
+      "content_type": "image/png",
+      "bytes": 443,
+      "sha256": "c990ebf23acc10e737f58ba873bb03a6c8a6bf526a79149eedabce64749166a3",
+      "retrieved_at": "2026-08-14"
+    }
+  ],
+  "runtime_note": "Demo runtime serves these bundled files locally and must not fetch PubChem remotely."
+}

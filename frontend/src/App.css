@@ -1,0 +1,82 @@
+/* 應用級樣式 */
+.app-container {
+  min-height: 100vh;
+}
+
+.content-area {
+  padding: 24px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 卡片樣式 */
+.custom-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.custom-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+/* 按鈕樣式 */
+.primary-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* 表單樣式 */
+.custom-form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.custom-form .ant-form-item {
+  margin-bottom: 24px;
+}
+
+/* 加載狀態 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+/* 錯誤狀態 */
+.error-container {
+  text-align: center;
+  padding: 40px;
+  color: #ff4d4f;
+}
+
+/* 成功狀態 */
+.success-container {
+  text-align: center;
+  padding: 40px;
+  color: #52c41a;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .content-area {
+    padding: 16px;
+    margin: 8px;
+  }
+
+  .custom-form {
+    max-width: 100%;
+  }
+}
