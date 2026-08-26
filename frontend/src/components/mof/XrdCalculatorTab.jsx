@@ -32,7 +32,7 @@ import {
   UploadOutlined,
 } from '@ant-design/icons'
 import Plot from 'react-plotly.js'
-import { calculateXrd, getRunArtifactText, getRunStatus, getToolsStatus, listRuns } from '../../services/mofApi'
+import { calculateXrd, getRunArtifactText, getRunStatus, getToolsStatus, installTool, listRuns } from '../../services/mofApi'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -186,15 +186,37 @@ const XrdCalculatorTab = ({ lastGeneratorCifPath, lastGeneratorRunId, activeJobI
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
   const [isPrecomputedSyntheticDemo, setIsPrecomputedSyntheticDemo] = useState(false)
+  const [xrdRuntimeStatus, setXrdRuntimeStatus] = useState(null)
+  const [installingXrdRuntime, setInstallingXrdRuntime] = useState(false)
 
   const effectiveWavelength =
     wavelengthPreset === 'custom' ? customWavelength : wavelengthPreset
 
   useEffect(() => {
     getToolsStatus()
-      .then((status) => setIsPrecomputedSyntheticDemo(status?.pmtransformer?.version === 'demo-canned'))
-      .catch(() => setIsPrecomputedSyntheticDemo(false))
+      .then((status) => {
+        setIsPrecomputedSyntheticDemo(status?.pmtransformer?.version === 'demo-canned')
+        setXrdRuntimeStatus(status?.pmtransformer || null)
+      })
+      .catch(() => {
+        setIsPrecomputedSyntheticDemo(false)
+        setXrdRuntimeStatus(null)
+      })
   }, [])
+
+  const handleInstallXrdRuntime = async () => {
+    setInstallingXrdRuntime(true)
+    try {
+      await installTool('pmtransformer')
+      message.success('已開始安裝 PMTransformer，完成後請重新整理狀態。')
+      const status = await getToolsStatus()
+      setXrdRuntimeStatus(status?.pmtransformer || null)
+    } catch (err) {
+      message.error(err.message || '無法啟動 PMTransformer 安裝')
+    } finally {
+      setInstallingXrdRuntime(false)
+    }
+  }
 
   const loadGeneratorRuns = useCallback(async () => {
     setLoadingRuns(true)
@@ -394,6 +416,21 @@ const XrdCalculatorTab = ({ lastGeneratorCifPath, lastGeneratorRunId, activeJobI
           showIcon
           message="Precomputed synthetic Demo XRD data"
           description="This Demo view uses only the matching repository-owned synthetic CIF and its stored offline XRD pattern; it does not run an XRD calculation."
+          style={{ marginBottom: 20 }}
+        />
+      )}
+
+      {!isPrecomputedSyntheticDemo && xrdRuntimeStatus && !xrdRuntimeStatus.ready && (
+        <Alert
+          type="warning"
+          showIcon
+          message="XRD 執行環境尚未就緒"
+          description={xrdRuntimeStatus.error || '需要可匯入 pymatgen 的 PMTransformer Python 環境。'}
+          action={(
+            <Button size="small" loading={installingXrdRuntime} onClick={handleInstallXrdRuntime}>
+              安裝／重試 PMTransformer
+            </Button>
+          )}
           style={{ marginBottom: 20 }}
         />
       )}

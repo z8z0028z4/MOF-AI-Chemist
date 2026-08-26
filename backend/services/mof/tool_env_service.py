@@ -9,6 +9,10 @@ from backend.config import MOF_DATA_DIR
 from backend.services.mof.griday_builder import discover_griday_root, ensure_griday_compatible
 
 
+class ToolReadinessError(RuntimeError):
+    """Raised when a tool cannot safely execute its worker."""
+
+
 class ToolEnvService:
     def __init__(self, mof_data_dir: str | Path | None = None):
         self.mof_data_dir = Path(mof_data_dir or MOF_DATA_DIR).expanduser().resolve()
@@ -35,6 +39,60 @@ class ToolEnvService:
 
     def get_python_executable(self, tool: str) -> Path:
         return self.get_env_dir(tool) / "bin" / "python"
+
+    def get_xrd_preflight(self) -> dict[str, Any]:
+        """Validate the exact interpreter used by the XRD worker.
+
+        Keep this check separate from the broader PMTransformer/GRIDAY status:
+        XRD only needs its declared interpreter and pymatgen, and must never
+        silently run under the backend interpreter.
+        """
+        python_exe = self.get_python_executable("pmtransformer")
+        status: dict[str, Any] = {
+            "ready": False,
+            "installed": python_exe.is_file(),
+            "python_executable": str(python_exe),
+            "pymatgen": False,
+            "error": None,
+        }
+        if not python_exe.is_file():
+            status["error"] = (
+                "PMTransformer environment is not installed. "
+                "Install PMTransformer and retry XRD."
+            )
+            return status
+
+        try:
+            probe = subprocess.run(
+                [
+                    str(python_exe),
+                    "-c",
+                    "import pymatgen; print(getattr(pymatgen, '__version__', 'installed'))",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            status["error"] = f"PMTransformer Python preflight failed: {exc}"
+            return status
+        if probe.returncode != 0:
+            detail = (probe.stderr or probe.stdout).strip()
+            status["error"] = (
+                "PMTransformer Python cannot import pymatgen. "
+                "Reinstall PMTransformer dependencies and retry XRD."
+                + (f" ({detail})" if detail else "")
+            )
+            return status
+
+        status.update({"ready": True, "pymatgen": True, "pymatgen_version": probe.stdout.strip()})
+        return status
+
+    def require_xrd_ready(self) -> dict[str, Any]:
+        status = self.get_xrd_preflight()
+        if not status["ready"]:
+            raise ToolReadinessError(status["error"] or "PMTransformer XRD environment is not ready")
+        return status
 
     def is_installed(self, tool: str) -> bool:
         python_exe = self.get_python_executable(tool)

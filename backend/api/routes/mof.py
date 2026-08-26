@@ -39,6 +39,7 @@ from backend.services.mof import (
     MofRunStore,
     RunNotFound,
     ToolEnvService,
+    ToolReadinessError,
     get_public_catalog,
     load_safe_model_profiles,
     resolve_catalog_id,
@@ -89,16 +90,16 @@ def get_tools_status():
         if demo_config.is_stage_demo("property_prediction")
         else tool_env_service.get_status("pormake")
     )
-    pmtransformer_status = (
-        {
+    if demo_config.is_stage_demo("property_prediction"):
+        pmtransformer_status = {
             "ready": True,
             "installed": True,
             "version": "demo-canned",
             "error": None,
         }
-        if demo_config.is_stage_demo("property_prediction")
-        else tool_env_service.get_status("pmtransformer")
-    )
+    else:
+        pmtransformer_status = tool_env_service.get_status("pmtransformer")
+        pmtransformer_status.update(tool_env_service.get_xrd_preflight())
     return {
         "pormake": pormake_status,
         "pmtransformer": pmtransformer_status,
@@ -804,13 +805,7 @@ def run_xrd_calculation(
         Path(__file__).parent.parent.parent / "workers" / "mof" / "xrd_calculator.py"
     )
 
-    if not python_exe.is_file():
-        # Fallback: try system python if pmtransformer env not yet installed
-        import shutil
-        fallback = shutil.which("python3") or shutil.which("python")
-        if fallback is None:
-            raise RuntimeError("pmtransformer environment not installed and no system python found")
-        python_exe = Path(fallback)
+    tool_env_service.require_xrd_ready()
 
     cmd = [
         str(python_exe),
@@ -1047,6 +1042,17 @@ async def calculate_xrd(
         except Exception:
             pass
         raise
+    except ToolReadinessError as exc:
+        try:
+            run_store.update_status(
+                run.run_id,
+                "failed",
+                progress=1.0,
+                message=str(exc),
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         try:
             run_store.update_status(

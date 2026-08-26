@@ -32,6 +32,9 @@ class ToolStatus(BaseModel):
     installed: bool
     version: Optional[str] = None
     error: Optional[str] = None
+    python_executable: Optional[str] = None
+    pymatgen: Optional[bool] = None
+    pymatgen_version: Optional[str] = None
 
 
 class ToolsStatusResponse(BaseModel):

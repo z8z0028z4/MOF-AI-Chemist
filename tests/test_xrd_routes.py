@@ -20,6 +20,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.services.mof.tool_env_service import ToolEnvService, ToolReadinessError
+
 
 # Minimal valid CIF content for testing (simple cubic MOF-like structure)
 MINIMAL_VALID_CIF = """\
@@ -84,12 +86,42 @@ MOCK_XRD_RESULT = {
     },
 }
 
+UI_DEFAULT_WAVELENGTH = 1.54060
+WORKER_DEFAULT_WAVELENGTH = 1.54184
+
 
 @pytest.fixture
 def client():
     """Create a test client for the FastAPI app."""
     from backend.main import app
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def xrd_tests_use_real_mode(demo_stage):
+    """Route contract tests exercise the real worker boundary, not Demo fixtures."""
+    demo_stage()
+
+
+@pytest.mark.fast
+@pytest.mark.unit
+def test_xrd_preflight_requires_pmtransformer_executable(tmp_path):
+    status = ToolEnvService(tmp_path).get_xrd_preflight()
+    assert status["ready"] is False
+    assert status["installed"] is False
+    assert "Install PMTransformer" in status["error"]
+
+
+@pytest.mark.fast
+@pytest.mark.unit
+def test_xrd_worker_never_falls_back_when_pmtransformer_missing(monkeypatch, tmp_path):
+    import backend.api.routes.mof as routes_mof
+
+    monkeypatch.setattr(routes_mof, "tool_env_service", ToolEnvService(tmp_path))
+    with patch("backend.api.routes.mof.subprocess.run") as run_mock:
+        with pytest.raises(ToolReadinessError, match="PMTransformer"):
+            routes_mof.run_xrd_calculation(tmp_path / "structure.cif")
+    run_mock.assert_not_called()
 
 
 @pytest.mark.fast
@@ -204,6 +236,53 @@ def test_xrd_calculate_custom_parameters(client, tmp_path):
     assert abs(captured_kwargs.get("wavelength", 0) - 1.78897) < 1e-4
     assert abs(captured_kwargs.get("max_two_theta", 0) - 60.0) < 1e-4
     assert abs(captured_kwargs.get("fwhm", 0) - 0.2) < 1e-4
+
+
+@pytest.mark.fast
+@pytest.mark.unit
+def test_xrd_route_keeps_ui_default_wavelength_explicit(client):
+    """The UI-default smoke contract must not rely on the worker default."""
+    captured_kwargs = {}
+
+    def capture_kwargs(cif_path, **kwargs):
+        captured_kwargs.update(kwargs)
+        return MOCK_XRD_RESULT
+
+    with patch("backend.api.routes.mof.run_xrd_calculation", side_effect=capture_kwargs):
+        res = client.post(
+            "/api/v1/mof/xrd/calculate",
+            files={"file": ("test.cif", MINIMAL_VALID_CIF.encode("utf-8"), "chemical/x-cif")},
+            data={
+                "wavelength": str(UI_DEFAULT_WAVELENGTH),
+                "max_two_theta": "80.0",
+                "fwhm": "0.1",
+            },
+        )
+
+    assert res.status_code == 200
+    assert captured_kwargs["wavelength"] == UI_DEFAULT_WAVELENGTH
+    assert captured_kwargs["max_two_theta"] == 80.0
+    assert captured_kwargs["fwhm"] == 0.1
+
+
+@pytest.mark.fast
+@pytest.mark.unit
+def test_xrd_route_documents_distinct_worker_default_wavelength(client):
+    """The API/worker default remains distinct from the UI-default smoke."""
+    captured_kwargs = {}
+
+    def capture_kwargs(cif_path, **kwargs):
+        captured_kwargs.update(kwargs)
+        return MOCK_XRD_RESULT
+
+    with patch("backend.api.routes.mof.run_xrd_calculation", side_effect=capture_kwargs):
+        res = client.post(
+            "/api/v1/mof/xrd/calculate",
+            files={"file": ("test.cif", MINIMAL_VALID_CIF.encode("utf-8"), "chemical/x-cif")},
+        )
+
+    assert res.status_code == 200
+    assert captured_kwargs["wavelength"] == WORKER_DEFAULT_WAVELENGTH
 
 
 @pytest.mark.fast
