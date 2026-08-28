@@ -1,5 +1,8 @@
-import pytest
+import ast
+from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 
 @pytest.mark.unit
@@ -86,3 +89,55 @@ def test_llm_client_passes_verified_httpx_client_to_openai(monkeypatch, tmp_path
     captured["http_client"].close()
     assert not hasattr(client, "disable_ssl_verify")
     assert "DISABLE_SSL_VERIFY" not in vars(llm_client)
+
+
+@pytest.mark.unit
+def test_pubchem_requests_use_resolved_tls_setting():
+    source_path = Path(__file__).parents[1] / "backend/services/pubchem_service.py"
+    tree = ast.parse(source_path.read_text(encoding="utf-8"))
+    requests_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "requests"
+        and node.func.attr == "get"
+    ]
+
+    assert requests_calls
+    assert all(
+        any(keyword.arg == "verify" for keyword in call.keywords)
+        for call in requests_calls
+    )
+
+
+@pytest.mark.unit
+def test_pubchem_search_passes_resolved_tls_setting(monkeypatch):
+    from backend.services import pubchem_service
+
+    response = MagicMock(status_code=200)
+    response.json.return_value = {"IdentifierList": {"CID": [947]}}
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append((url, kwargs))
+        return response
+
+    monkeypatch.setattr(pubchem_service, "tls_verify_setting", lambda: "/ca.pem")
+    monkeypatch.setattr(pubchem_service.requests, "get", fake_get)
+
+    assert pubchem_service.search_source(["nitrogen"]) == [
+        {"cid": 947, "query": "nitrogen", "source": "PubChem"}
+    ]
+    assert calls[0][1] == {"verify": "/ca.pem", "timeout": 10}
+
+
+@pytest.mark.unit
+def test_launchers_validate_and_preserve_explicit_ca_bundle():
+    root = Path(__file__).parents[1]
+    for launcher in (root / "start_react.sh", root / "run_backend.sh"):
+        text = launcher.read_text(encoding="utf-8")
+        assert "REQUESTS_CA_BUNDLE SSL_CERT_FILE" in text
+        assert '-f "$CA_VALUE"' in text
+        assert 'export "$CA_VAR"' in text

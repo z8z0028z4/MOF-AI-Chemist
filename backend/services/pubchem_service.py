@@ -8,6 +8,7 @@ import time
 import unicodedata
 
 from backend.config import PARSED_CHEMICALS_DIR
+from backend.core.tls import tls_verify_setting
 
 PARSED_CHEMICAL_DIR = PARSED_CHEMICALS_DIR
 
@@ -86,7 +87,7 @@ def search_source(keywords: List[str], limit: int = 5) -> List[Dict]:
     for keyword in keywords:
         url = f"{BASE_URL}/compound/name/{keyword}/cids/JSON"
         try:
-            r = requests.get(url, timeout=10)
+            r = requests.get(url, verify=tls_verify_setting(), timeout=10)
             if r.status_code == 200 and 'IdentifierList' in r.json():
                 cids = r.json()['IdentifierList']['CID'][:limit]
                 for cid in cids:
@@ -113,7 +114,7 @@ def download_and_store(result: Dict, storage_dir: str) -> str:
     filepath = os.path.join(storage_dir, f"pubchem_cid{cid}.json")
 
     try:
-        r = requests.get(url, timeout=15)
+        r = requests.get(url, verify=tls_verify_setting(), timeout=15)
         if r.ok:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(r.text)
@@ -217,7 +218,7 @@ def _get_pubchem_view_json(cid: int) -> dict | None:
     """Fetch the shared PUG View payload once per CID."""
     url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
     try:
-        r = requests.get(url, timeout=15)
+        r = requests.get(url, verify=tls_verify_setting(), timeout=15)
         if not r.ok:
             print(f"⚠️ View API 回傳失敗：CID {cid}, status: {r.status_code}")
             return None
@@ -461,7 +462,7 @@ def extract_and_fetch_chemicals(name_list: List[str], save_dir=PARSED_CHEMICAL_D
         try:
             # Step 1: General compound JSON
             url_main = f"{BASE_URL}/compound/cid/{cid}/JSON"
-            r_main = requests.get(url_main, timeout=15)
+            r_main = requests.get(url_main, verify=tls_verify_setting(), timeout=15)
             if not r_main.ok:
                 print(f"⚠️ 主查詢失敗 CID {cid}: {r_main.status_code}")
                 not_found.append(name)
@@ -545,7 +546,7 @@ def get_single_chemical(chemical_name: str) -> Dict[str, Any]:
 
         # 獲取詳細信息
         url_main = f"{BASE_URL}/compound/cid/{cid}/JSON"
-        r_main = requests.get(url_main, timeout=15)
+        r_main = requests.get(url_main, verify=tls_verify_setting(), timeout=15)
         if not r_main.ok:
             return {"name": chemical_name, "error": f"主查詢失敗 CID {cid}: {r_main.status_code}"}
 

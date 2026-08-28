@@ -26,6 +26,19 @@ fi
 # Create logs directory if not exists
 mkdir -p logs
 
+# Preserve the configured enterprise CA for the backend and fail early when it
+# points at a missing file. With no explicit bundle, Requests uses system trust.
+for CA_VAR in REQUESTS_CA_BUNDLE SSL_CERT_FILE; do
+    CA_VALUE="${!CA_VAR:-}"
+    if [ -n "$CA_VALUE" ] && [ ! -f "$CA_VALUE" ]; then
+        echo -e "${RED}[ERROR] $CA_VAR points to a missing CA bundle: $CA_VALUE${NC}"
+        exit 1
+    fi
+    if [ -n "$CA_VALUE" ]; then
+        export "$CA_VAR"
+    fi
+done
+
 echo -e "${YELLOW}正在啟動後端服務...${NC}"
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --log-level info > logs/backend.log 2>&1 &
 BACKEND_PID=$!
