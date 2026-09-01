@@ -103,6 +103,20 @@ class APIRequestError(AIResearchAgentError):
         super().__init__(message, "API_REQUEST_ERROR", details)
 
 
+class PubChemNotFoundError(APIRequestError):
+    """PubChem verified that the requested chemical does not exist."""
+
+    def __init__(self, message: str = "PubChem chemical not found"):
+        super().__init__(message, api_name="PubChem", status_code=404)
+
+
+class PubChemUpstreamError(APIRequestError):
+    """PubChem could not be reached or returned an upstream failure."""
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message, api_name="PubChem", status_code=status_code)
+
+
 class ValidationError(AIResearchAgentError):
     """數據驗證相關錯誤"""
 

@@ -6,9 +6,11 @@ from typing import List, Dict, Tuple, Any
 import re
 import time
 import unicodedata
+from urllib.parse import quote
 
 from backend.config import PARSED_CHEMICALS_DIR
 from backend.core.tls import tls_verify_setting
+from backend.utils.exceptions import PubChemNotFoundError, PubChemUpstreamError
 
 PARSED_CHEMICAL_DIR = PARSED_CHEMICALS_DIR
 
@@ -99,6 +101,81 @@ def search_source(keywords: List[str], limit: int = 5) -> List[Dict]:
         except Exception as e:
             print(f"PubChem search failed for '{keyword}': {e}")
     return results
+
+
+def classify_chemical_query(query: str) -> str:
+    """Classify only the narrow formula-like shape needed for PubChem routing."""
+    formula_shape = re.compile(r"^[A-Z][a-z]?(?:\d+)?(?:[A-Z][a-z]?(?:\d+)?)+$")
+    return "formula" if formula_shape.fullmatch(query.strip()) else "name"
+
+
+def search_formula(formula: str, limit: int = 20) -> Tuple[List[Dict[str, Any]], int]:
+    """Return PubChem formula summaries without safety/structure detail calls."""
+    url = f"{BASE_URL}/compound/fastformula/{quote(formula, safe='')}/cids/JSON"
+    try:
+        response = requests.get(url, verify=tls_verify_setting(), timeout=10)
+        if not response.ok:
+            if response.status_code == 404:
+                raise PubChemNotFoundError(f"PubChem formula not found: {formula}")
+            raise PubChemUpstreamError(
+                f"PubChem formula lookup failed with HTTP {response.status_code}",
+                response.status_code,
+            )
+        cids = response.json().get("IdentifierList", {}).get("CID", [])
+        if not cids:
+            raise PubChemNotFoundError(f"PubChem formula not found: {formula}")
+        summaries = []
+        for cid in cids[:limit]:
+            property_url = f"{BASE_URL}/compound/cid/{cid}/property/IUPACName,MolecularFormula,MolecularWeight/JSON"
+            property_response = requests.get(property_url, verify=tls_verify_setting(), timeout=10)
+            if not property_response.ok:
+                if property_response.status_code == 404:
+                    raise PubChemNotFoundError(f"PubChem CID not found: {cid}")
+                raise PubChemUpstreamError(
+                    f"PubChem property lookup failed with HTTP {property_response.status_code}",
+                    property_response.status_code,
+                )
+            properties = property_response.json().get("PropertyTable", {}).get("Properties", [])
+            if properties:
+                prop = properties[0]
+                summaries.append({
+                    "cid": cid,
+                    "name": prop.get("IUPACName") or str(cid),
+                    "formula": prop.get("MolecularFormula"),
+                    "molecular_weight": prop.get("MolecularWeight"),
+                })
+        return summaries, len(cids)
+    except (PubChemNotFoundError, PubChemUpstreamError):
+        raise
+    except requests.RequestException as exc:
+        raise PubChemUpstreamError(f"PubChem formula lookup unavailable: {exc}") from exc
+    except Exception as exc:
+        print(f"PubChem formula search failed for '{formula}': {exc}")
+        raise PubChemUpstreamError(f"PubChem formula lookup failed: {exc}") from exc
+
+
+def _search_source_for_single(keyword: str) -> List[Dict[str, Any]]:
+    """Strict single-query variant preserving PubChem outcome categories."""
+    url = f"{BASE_URL}/compound/name/{quote(keyword, safe='')}/cids/JSON"
+    try:
+        response = requests.get(url, verify=tls_verify_setting(), timeout=10)
+        if response.status_code == 404:
+            raise PubChemNotFoundError(f"PubChem chemical not found: {keyword}")
+        if not response.ok:
+            raise PubChemUpstreamError(
+                f"PubChem name lookup failed with HTTP {response.status_code}",
+                response.status_code,
+            )
+        cids = response.json().get("IdentifierList", {}).get("CID", [])
+        if not cids:
+            raise PubChemNotFoundError(f"PubChem chemical not found: {keyword}")
+        return [{"cid": cid, "query": keyword, "source": "PubChem"} for cid in cids]
+    except (PubChemNotFoundError, PubChemUpstreamError):
+        raise
+    except requests.RequestException as exc:
+        raise PubChemUpstreamError(f"PubChem name lookup unavailable: {exc}") from exc
+    except Exception as exc:
+        raise PubChemUpstreamError(f"PubChem name lookup failed: {exc}") from exc
 
 def download_and_store(result: Dict, storage_dir: str) -> str:
     """
@@ -524,7 +601,7 @@ def remove_json_chemical_block(text: str) -> str:
     return re.sub(r"```json\s*\[[^\]]+\]\s*```", "", text, flags=re.DOTALL)
 
 
-def get_single_chemical(chemical_name: str) -> Dict[str, Any]:
+def get_single_chemical(chemical_name: str, selected_cid: int | None = None) -> Dict[str, Any]:
     """
     獲取單個化學品信息
 
@@ -535,23 +612,30 @@ def get_single_chemical(chemical_name: str) -> Dict[str, Any]:
         化學品信息字典
     """
     try:
-        # 搜索化學品
-        results = search_source([chemical_name], limit=1)
-        if not results:
-            return {"name": chemical_name, "error": "未找到化學品信息"}
-
-        cid = results[0].get("cid")
+        if selected_cid is None:
+            results = _search_source_for_single(chemical_name)
+            if not results:
+                return {"name": chemical_name, "error": "未找到化學品信息"}
+            cid = results[0].get("cid")
+        else:
+            cid = selected_cid
         if not cid:
             return {"name": chemical_name, "error": "無 CID"}
 
         # 獲取詳細信息
         url_main = f"{BASE_URL}/compound/cid/{cid}/JSON"
         r_main = requests.get(url_main, verify=tls_verify_setting(), timeout=15)
+        if r_main.status_code == 404:
+            raise PubChemNotFoundError(f"PubChem CID not found: {cid}")
         if not r_main.ok:
-            return {"name": chemical_name, "error": f"主查詢失敗 CID {cid}: {r_main.status_code}"}
+            raise PubChemUpstreamError(
+                f"PubChem detail lookup failed with HTTP {r_main.status_code}",
+                r_main.status_code,
+            )
 
         json_data = r_main.json()
         parsed = parse_pubchem_json(json_data)
+        parsed["query_name"] = chemical_name
 
         # 加入pubchem超連結
         parsed["pubchem_url"] = f"https://pubchem.ncbi.nlm.nih.gov/compound/{cid}"
@@ -570,8 +654,12 @@ def get_single_chemical(chemical_name: str) -> Dict[str, Any]:
 
         return parsed
 
-    except Exception as e:
-        return {"name": chemical_name, "error": f"查詢失敗: {str(e)}"}
+    except (PubChemNotFoundError, PubChemUpstreamError):
+        raise
+    except requests.RequestException as exc:
+        raise PubChemUpstreamError(f"PubChem detail lookup unavailable: {exc}") from exc
+    except Exception as exc:
+        raise PubChemUpstreamError(f"PubChem detail lookup failed: {exc}") from exc
 
 
 def chemical_metadata_extractor(proposal_text: str):

@@ -11,6 +11,7 @@ export const searchChemical = ({
   includeProperties = true,
   includeStructure = true,
   saveToDatabase = true,
+  selectedCid,
 }) =>
   requestJson('/chemical/search', {
     method: 'POST',
@@ -20,6 +21,7 @@ export const searchChemical = ({
       include_properties: includeProperties,
       include_structure: includeStructure,
       save_to_database: saveToDatabase,
+      ...(selectedCid ? { selected_cid: selectedCid } : {}),
     },
   })
 

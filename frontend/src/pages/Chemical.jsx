@@ -15,6 +15,8 @@ const Chemical = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [chemicalData, setChemicalData] = useState(null);
+  const [formulaCandidates, setFormulaCandidates] = useState([]);
+  const [candidateCount, setCandidateCount] = useState(null);
   const [databaseStats, setDatabaseStats] = useState(null);
   // 移除不需要的狀態變量
   const [databaseChemicals, setDatabaseChemicals] = useState([]);
@@ -65,13 +67,16 @@ const Chemical = () => {
     loadDatabaseStats();
   }, []);
 
-  const runChemicalSearch = async (chemicalName) => {
+  const runChemicalSearch = async (chemicalName, selectedCid = undefined) => {
     if (!chemicalName.trim()) {
       message.warning('Please enter a chemical name or formula');
       return;
     }
 
     setLoading(true);
+    setChemicalData(null);
+    setFormulaCandidates([]);
+    setCandidateCount(null);
     try {
       console.log('Searching for chemical:', chemicalName);
 
@@ -81,6 +86,7 @@ const Chemical = () => {
         includeProperties: true,
         includeStructure: true,
         saveToDatabase: true,
+        selectedCid,
       });
 
       console.log('🔍 [CHEMICAL-SEARCH] API 響應數據:', data);
@@ -93,7 +99,9 @@ const Chemical = () => {
         message.error(data.error);
         setChemicalData(null);
       } else {
-        setChemicalData(data);
+        setFormulaCandidates(data.candidates || []);
+        setCandidateCount(data.candidate_count ?? null);
+        setChemicalData(data.candidates?.length ? null : data);
         message.success(`Chemical information found${data.saved_to_database ? ' and saved to database' : ''}`);
 
         // Refresh database stats and list if saved
@@ -110,7 +118,16 @@ const Chemical = () => {
         }
       }
     } catch (error) {
-      message.error('Failed to find chemical information');
+      setChemicalData(null);
+      setFormulaCandidates([]);
+      setCandidateCount(null);
+      if (error?.status === 503) {
+        message.error('PubChem 暫時無法使用，請稍後重試');
+      } else if (error?.status === 404) {
+        message.error('未找到化學品資訊');
+      } else {
+        message.error('查詢化學品資訊失敗');
+      }
       console.error('Chemical search error:', error);
     } finally {
       setLoading(false);
@@ -251,6 +268,28 @@ const Chemical = () => {
     );
   };
 
+  const renderFormulaCandidates = () => {
+    if (!formulaCandidates.length) return null;
+    return (
+      <Card title={`Formula matches (${candidateCount ?? formulaCandidates.length})`} style={{ marginBottom: 16 }}>
+        <List
+          bordered
+          dataSource={formulaCandidates}
+          renderItem={(candidate) => (
+            <List.Item
+              actions={[<Button key="select" type="primary" onClick={() => runChemicalSearch(searchQuery, candidate.cid)}>Select</Button>]}
+            >
+              <List.Item.Meta
+                title={`${candidate.name} (CID ${candidate.cid})`}
+                description={`Formula: ${candidate.formula || '-'} | Molecular weight: ${candidate.molecular_weight || '-'}`}
+              />
+            </List.Item>
+          )}
+        />
+      </Card>
+    );
+  };
+
   return (
     <div>
       <Title level={2}>化學品查詢</Title>
@@ -295,6 +334,7 @@ const Chemical = () => {
       </Card>
 
       {/* Chemical Information Display - 移到前面 */}
+      {renderFormulaCandidates()}
       {renderChemicalInfo()}
 
       {/* Database Chemicals List - 移到後面，使用固定高度 */}

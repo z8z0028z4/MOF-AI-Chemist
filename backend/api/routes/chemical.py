@@ -20,7 +20,8 @@ from backend.api.models.chemical_models import (
 )
 from backend.services.chemical_service import chemical_service
 from backend.services.chemical_database_service import chemical_db_service
-from backend.services.pubchem_service import chemical_metadata_extractor
+from backend.services.pubchem_service import chemical_metadata_extractor, classify_chemical_query
+from backend.utils.exceptions import PubChemNotFoundError, PubChemUpstreamError
 
 router = APIRouter()
 
@@ -38,21 +39,29 @@ async def search_chemical(request: ChemicalRequest):
         化學品詳細信息
     """
     try:
-        # 使用增強的化學品查詢服務
-        result = chemical_service.get_chemical_with_database_lookup(
-            chemical_name=request.chemical_name,
-            include_structure=request.include_structure,
-            save_to_db=request.save_to_database
-        )
+        query_type = classify_chemical_query(request.chemical_name)
+        if query_type == "formula" and request.selected_cid is None:
+            result = chemical_service.search_formula_candidates(request.chemical_name)
+        elif request.selected_cid is not None:
+            result = chemical_service.get_selected_chemical(
+                request.chemical_name, request.selected_cid,
+                request.include_structure, request.save_to_database
+            )
+        else:
+            # Preserve the existing name-query service contract.
+            result = chemical_service.get_chemical_with_database_lookup(
+                chemical_name=request.chemical_name,
+                include_structure=request.include_structure,
+                save_to_db=request.save_to_database
+            )
 
         if not result:
             raise HTTPException(status_code=404, detail="化學品未找到")
 
         if result.get("error"):
-            return ChemicalResponse(
-                name=request.chemical_name,
-                error=result.get("error")
-            )
+            if query_type == "formula":
+                raise HTTPException(status_code=404, detail="化學品未找到")
+            return ChemicalResponse(name=request.chemical_name, error=result.get("error"), query_type=query_type, candidate_count=result.get("candidate_count"))
 
         # 構建響應數據
         safety_data = None
@@ -88,9 +97,16 @@ async def search_chemical(request: ChemicalRequest):
             safety_data=safety_data,
             properties=properties,
             cid=result.get("cid"),
-            saved_to_database=result.get("saved_to_database", False)
+            saved_to_database=result.get("saved_to_database", False),
+            query_type=result.get("query_type", query_type),
+            candidates=result.get("candidates", []),
+            candidate_count=result.get("candidate_count")
         )
 
+    except PubChemNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="化學品未找到") from exc
+    except PubChemUpstreamError as exc:
+        raise HTTPException(status_code=503, detail="PubChem 暫時無法使用，請稍後重試") from exc
     except HTTPException:
         raise
     except Exception as e:

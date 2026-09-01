@@ -9,8 +9,12 @@ import time
 from typing import List, Dict, Any, Tuple
 
 from ..utils.logger import get_logger
-from ..utils.exceptions import APIRequestError
-from .pubchem_service import chemical_metadata_extractor, get_single_chemical
+from ..utils.exceptions import APIRequestError, PubChemNotFoundError, PubChemUpstreamError
+from .pubchem_service import (
+    chemical_metadata_extractor,
+    get_single_chemical,
+    search_formula,
+)
 from .smiles_drawer import smiles_drawer
 from .chemical_database_service import chemical_db_service
 
@@ -289,7 +293,7 @@ class ChemicalService:
 
             if not result or result.get("error"):
                 logger.warning(f"API查詢失敗: {chemical_name}")
-                return {"name": chemical_name, "error": "未找到化學品信息"}
+                raise PubChemNotFoundError(f"PubChem chemical not found: {chemical_name}")
 
             # 添加分子結構圖
             if include_structure:
@@ -311,9 +315,30 @@ class ChemicalService:
 
             return result
 
+        except (PubChemNotFoundError, PubChemUpstreamError):
+            raise
         except Exception as e:
             logger.error(f"化學品查詢失敗: {e}")
             raise APIRequestError(f"化學品查詢失敗: {str(e)}")
+
+    def search_formula_candidates(self, formula: str) -> Dict[str, Any]:
+        candidates, candidate_count = search_formula(formula, limit=20)
+        candidates = candidates[:20]
+        if candidate_count == 0:
+            raise PubChemNotFoundError(f"PubChem formula not found: {formula}")
+        if candidate_count == 1 and candidates:
+            result = self.get_selected_chemical(formula, candidates[0]["cid"])
+            result.update({"query_type": "formula", "candidates": [], "candidate_count": 1})
+            return result
+        return {"name": formula, "candidates": candidates, "candidate_count": candidate_count}
+
+    def get_selected_chemical(self, query: str, selected_cid: int, include_structure: bool = True, save_to_db: bool = True) -> Dict[str, Any]:
+        result = get_single_chemical(query, selected_cid=selected_cid)
+        if include_structure:
+            result = self.add_smiles_drawing(result)
+        if save_to_db:
+            result["saved_to_database"] = bool(chemical_db_service.save_chemical(result))
+        return result
 
     def batch_get_chemicals_with_database(self, chemical_names: List[str], include_structure: bool = True, save_to_db: bool = True) -> Tuple[List[Dict[str, Any]], List[str]]:
         """

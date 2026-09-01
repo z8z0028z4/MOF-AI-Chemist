@@ -36,7 +36,7 @@ const AppHeader = () => {
         <Space>
           <ExperimentOutlined style={{ fontSize: '24px', color: 'white' }} />
           <Title level={3} style={{ color: 'white', margin: 0 }}>
-            AI Research Assistant
+            MOF AI Chemist
           </Title>
         </Space>
 

@@ -66,7 +66,7 @@ const Dashboard = () => {
 
   return (
     <div>
-      <Title level={2}>歡迎使用 AI Research Assistant</Title>
+      <Title level={2}>歡迎使用 MOF AI Chemist</Title>
       <Paragraph>
         智能研究助理，幫助您更高效地進行科學研究
       </Paragraph>

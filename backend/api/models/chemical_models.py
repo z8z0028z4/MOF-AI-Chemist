@@ -17,6 +17,7 @@ class ChemicalRequest(BaseModel):
     include_properties: bool = True
     include_structure: bool = True
     save_to_database: bool = True
+    selected_cid: Optional[int] = None
 
 
 class ChemicalResponse(BaseModel):
@@ -37,6 +38,9 @@ class ChemicalResponse(BaseModel):
     cid: Optional[int] = None
     error: Optional[str] = None
     saved_to_database: bool = False
+    query_type: str = "name"
+    candidates: List[Dict[str, Any]] = []
+    candidate_count: Optional[int] = None
 
 
 class ChemicalBatchRequest(BaseModel):
