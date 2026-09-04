@@ -14,8 +14,20 @@ from backend.utils.logger import get_logger
 from backend.utils.exceptions import LLMError, APIRequestError
 from backend.core.llm_client import get_llm_client
 from backend.core.model_config import get_current_model, get_model_params
+from backend.core.settings_manager import settings_manager
+from backend.core.providers.openrouter_provider import OpenRouterProvider
+from backend.core.llm_provider import ProviderUnavailableError, StructuredOutputError
 
 logger = get_logger(__name__)
+
+
+def _selected_provider() -> str:
+    return settings_manager.get_provider()
+
+
+def _openrouter_provider() -> OpenRouterProvider:
+    from backend.core.config import settings
+    return OpenRouterProvider(lambda: settings.openrouter_api_key)
 
 
 def call_llm(prompt: str, model: Optional[str] = None, **kwargs) -> str:
@@ -33,12 +45,16 @@ def call_llm(prompt: str, model: Optional[str] = None, **kwargs) -> str:
         current_model = model if model else get_current_model()
         llm_params = get_model_params()
 
+        if _selected_provider() == "openrouter":
+            return _openrouter_provider().generate_text(prompt, current_model, **kwargs)
         # 使用新的 LLM 客戶端
         llm_client = get_llm_client()
         return llm_client.call_llm(prompt, current_model, llm_params, **kwargs)
 
     except Exception as e:
         logger.error(f"LLM 調用失敗：{e}")
+        if isinstance(e, ProviderUnavailableError):
+            raise
         raise LLMError(f"LLM 調用失敗：{str(e)}")
 
 
@@ -64,9 +80,8 @@ def call_structured_llm(prompt: str, schema: Dict[str, Any], model: Optional[str
 
         logger.info(f"調用結構化 LLM，模型：{current_model}")
 
-        # 只支援 GPT-5 系列 (和 Gemini)
-        if not current_model.startswith('gpt-5') and not current_model.startswith('gemini-'):
-            raise LLMError(f"不支援的模型：{current_model}，只支援 GPT-5 系列和 Gemini")
+        if _selected_provider() == "openrouter":
+            return _openrouter_provider().generate_structured(prompt, current_model, schema, **kwargs).data
 
         # 使用新的 LLM 客戶端
         llm_client = get_llm_client()
@@ -74,6 +89,8 @@ def call_structured_llm(prompt: str, schema: Dict[str, Any], model: Optional[str
 
     except Exception as e:
         logger.error(f"結構化 LLM 調用失敗：{e}")
+        if isinstance(e, (ProviderUnavailableError, StructuredOutputError)):
+            raise
         raise LLMError(f"結構化 LLM 調用失敗：{str(e)}")
 
 
@@ -113,10 +130,6 @@ def call_llm_structured_proposal(system_prompt: str, user_prompt: str, model: Op
         raise LLMError(f"無法獲取模型信息：{str(e)}")
 
     try:
-        # 只支援 GPT-5 系列 (和 Gemini)
-        if not current_model.startswith('gpt-5') and not current_model.startswith('gemini-'):
-            raise LLMError(f"不支援的模型：{current_model}，只支援 GPT-5 系列和 Gemini")
-
         import copy
         from backend.core.schema_manager import create_research_proposal_schema
         # 動態獲取最新的 schema
@@ -160,6 +173,8 @@ def call_llm_structured_proposal(system_prompt: str, user_prompt: str, model: Op
 
     except Exception as e:
         logger.error(f"結構化LLM調用失敗：{e}")
+        if isinstance(e, (ProviderUnavailableError, StructuredOutputError)):
+            raise
         raise LLMError(f"結構化LLM調用失敗：{str(e)}")
 
 
@@ -187,10 +202,6 @@ def call_llm_structured_experimental_detail(chunks: List, proposal: str, model: 
         raise LLMError(f"無法獲取模型信息：{str(e)}")
 
     try:
-        # 只支援 GPT-5 系列使用 Responses API (和 Gemini)
-        if not current_model.startswith('gpt-5') and not current_model.startswith('gemini-'):
-            raise LLMError(f"不支援的模型：{current_model}，只支援 GPT-5 系列和 Gemini")
-
         from backend.core.schema_manager import create_experimental_detail_schema
 
         # 構建系統提示詞
@@ -252,7 +263,7 @@ def call_llm_structured_experimental_detail(chunks: List, proposal: str, model: 
 
     except Exception as e:
         logger.error(f"結構化實驗細節LLM調用失敗：{e}")
-        return {}
+        raise
 
 
 
@@ -287,10 +298,6 @@ def call_llm_structured_revision_proposal(question: str, new_chunks: List, old_c
         raise LLMError(f"無法獲取模型信息：{str(e)}")
 
     try:
-        # 只支援 GPT-5 系列使用 Responses API (和 Gemini)
-        if not current_model.startswith('gpt-5') and not current_model.startswith('gemini-'):
-            raise LLMError(f"不支援的模型：{current_model}，只支援 GPT-5 系列和 Gemini")
-
         import copy
         from backend.core.schema_manager import create_revision_proposal_schema
 
@@ -408,7 +415,7 @@ def call_llm_structured_revision_proposal(question: str, new_chunks: List, old_c
 
     except Exception as e:
         logger.error(f"結構化修訂提案LLM調用失敗：{e}")
-        return {}
+        raise
 
 
 def call_llm_structured_revision_experimental_detail(
@@ -447,10 +454,6 @@ def call_llm_structured_revision_experimental_detail(
         raise LLMError(f"無法獲取模型信息：{str(e)}")
 
     try:
-        # 只支援 GPT-5 系列使用 Responses API (和 Gemini)
-        if not current_model.startswith('gpt-5') and not current_model.startswith('gemini-'):
-            raise LLMError(f"不支援的模型：{current_model}，只支援 GPT-5 系列和 Gemini")
-
         from backend.core.schema_manager import create_revision_experimental_detail_schema
 
         # 動態獲取最新的 schema
@@ -531,7 +534,7 @@ def call_llm_structured_revision_experimental_detail(
 
     except Exception as e:
         logger.error(f"結構化修訂實驗細節LLM調用失敗：{e}")
-        return {}
+        raise
 
 
 def extract_mof_from_proposal(proposal_text: str, model: Optional[str] = None, mof_linker_mode: str = "auto", chemicals_list: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
@@ -539,14 +542,7 @@ def extract_mof_from_proposal(proposal_text: str, model: Optional[str] = None, m
     第二階段 AI：從生成的自由提案文本中，提取 MOF 的金屬和配體名稱
     """
     logger.info("啟動第二階段 AI：從提案中提取 MOF 結構化資訊")
-    try:
-        current_model = model if model else get_current_model()
-    except Exception:
-        try:
-            from backend.core.settings_manager import settings_manager
-            current_model = settings_manager.get_fallback_model()
-        except Exception:
-            current_model = "gemini-3-flash-preview"  # 最後安全降級備份
+    current_model = model if model else get_current_model()
 
 
     from backend.core.schema_manager import create_mof_extraction_schema
@@ -570,21 +566,11 @@ Follow these strict rules:
 
     full_prompt = f"{system_prompt}\n\n{user_prompt}"
 
-    try:
-        result = call_structured_llm(full_prompt, schema, model=current_model)
-        logger.info(f"第二階段提取成功: {result}")
-        if isinstance(result, dict):
-            res_copy = result.copy()
-            if mof_linker_mode == "single":
-                res_copy["mof_linker_name_2"] = ""
-            return res_copy
-        return result
-    except Exception as e:
-        logger.error(f"第二階段提取失敗: {e}")
-        # 降級安全回傳
-        return {
-            "is_mof_related": False,
-            "mof_metal_element": "",
-            "mof_linker_name": "",
-            "mof_linker_name_2": ""
-        }
+    result = call_structured_llm(full_prompt, schema, model=current_model)
+    logger.info(f"第二階段提取成功: {result}")
+    if isinstance(result, dict):
+        res_copy = result.copy()
+        if mof_linker_mode == "single":
+            res_copy["mof_linker_name_2"] = ""
+        return res_copy
+    return result

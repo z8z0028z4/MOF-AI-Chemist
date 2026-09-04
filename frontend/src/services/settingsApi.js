@@ -15,13 +15,28 @@ export function getModelSettings() {
   return requestJson('/settings/model')
 }
 
-export function updateModelSettings(llmModel, llmFallbackModel) {
+export function updateModelSettings(llmModel, llmProvider) {
   return requestJson('/settings/model', {
     method: 'POST',
     json: {
       llm_model: llmModel,
-      llm_fallback_model: llmFallbackModel
+      llm_provider: llmProvider,
     },
+  })
+}
+
+export function getOpenRouterModels(refresh = false) {
+  const params = new URLSearchParams()
+  if (refresh) params.set('refresh', 'true')
+
+  const query = params.toString()
+  return requestJson(`/settings/openrouter/models${query ? `?${query}` : ''}`)
+}
+
+export function updateProviderKey(provider, apiKey, clear = false) {
+  return requestJson('/settings/provider-key', {
+    method: 'POST',
+    json: { provider, api_key: apiKey, clear },
   })
 }
 

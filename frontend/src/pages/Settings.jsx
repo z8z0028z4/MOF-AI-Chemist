@@ -1,6 +1,6 @@
 import { InfoCircleOutlined, KeyOutlined, ReloadOutlined, SaveOutlined, SettingOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Col, Divider, Form, Input, InputNumber, message, Row, Select, Slider, Space, Switch, Typography } from 'antd'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage } from '../services/apiClient'
 import {
   getDevModeStatus,
@@ -11,14 +11,23 @@ import {
   getLlmParameters,
   getModelParametersInfo,
   getModelSettings,
-  saveGoogleApiKey,
-  saveOpenAiApiKey,
+  getOpenRouterModels,
+  updateProviderKey,
   updateDevModeStatus,
   updateDemoModeSettings,
   updateJsonSchemaParameters,
   updateLlmParameters,
   updateModelSettings,
 } from '../services/settingsApi'
+import {
+  enterOpenRouterCatalog,
+  canCommitCatalogRequest,
+  commitCatalogResponse,
+  loadOpenRouterCatalogPage,
+  isSuccessfulCatalogResponse,
+  shouldApplySettingsCatalogSnapshot,
+  shouldLoadOpenRouterCatalog,
+} from '../services/openRouterCatalog'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -27,14 +36,15 @@ const { Password } = Input
 const Settings = () => {
   const [form] = Form.useForm()
   const [apiKeyForm] = Form.useForm()
-  const [googleApiKeyForm] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [currentModel, setCurrentModel] = useState('')
-  const [selectedModel, setSelectedModel] = useState('') // 新增：追蹤當前選擇的模型
+  const [llmProvider, setLlmProvider] = useState('openai')
+  const [selectedModel, setSelectedModel] = useState('')
   const [envStatus, setEnvStatus] = useState({
     exists: false,
     openai_key_configured: false,
-    google_key_configured: false
+    google_key_configured: false,
+    openrouter_key_configured: false
   })
   const [llmParams, setLlmParams] = useState({
     max_tokens: 4000,
@@ -102,7 +112,36 @@ const Settings = () => {
   ]
 
   const [availableModels, setAvailableModels] = useState(defaultModelOptions)
-  const [fallbackModel, setFallbackModel] = useState('')
+  const [catalogState, setCatalogState] = useState({ stale: false, error: null })
+
+  const catalogLoadingRef = useRef(false)
+  const catalogRequestGenerationRef = useRef(0)
+  const catalogContextRef = useRef({ provider: llmProvider, keyConfigured: false })
+  const catalogModelsRef = useRef(defaultModelOptions)
+  const catalogCommittedRef = useRef(false)
+
+  const selectedModelRef = useRef('')
+  const catalogProviderRef = useRef(null)
+  const openRouterSelectionRef = useRef(null)
+  const openRouterPreservedSelectionValueRef = useRef(null)
+  const openRouterPreviousProviderRef = useRef(null)
+  const openRouterInitialSelectionRef = useRef(null)
+  const settingsLoadedRef = useRef(false)
+  const envStatusLoadedRef = useRef(false)
+  const [catalogLoadReady, setCatalogLoadReady] = useState(false)
+
+
+  const currentCatalogContext = {
+    provider: llmProvider,
+    keyConfigured: Boolean(envStatus.openrouter_key_configured),
+  }
+  if (
+    catalogContextRef.current.provider !== currentCatalogContext.provider
+    || catalogContextRef.current.keyConfigured !== currentCatalogContext.keyConfigured
+  ) {
+    catalogRequestGenerationRef.current += 1
+    catalogContextRef.current = currentCatalogContext
+  }
 
 
   // 載入當前設定
@@ -121,6 +160,119 @@ const Settings = () => {
     }
   }, [selectedModel])
 
+  useEffect(() => {
+    selectedModelRef.current = selectedModel
+  }, [selectedModel])
+
+  useEffect(() => {
+    // The provider and key arrive from separate requests on first mount.  Do
+    // not let either response start a catalog load until both settings
+    // snapshots have been applied; otherwise the later snapshot can reset the
+    // provider-scoped options while the first page is committing.
+    if (!settingsLoadedRef.current || !envStatusLoadedRef.current) return
+    if (llmProvider !== 'openrouter') {
+      if (catalogProviderRef.current === 'openrouter') {
+        openRouterSelectionRef.current = availableModels.find((item) => item.value === selectedModelRef.current) || null
+      }
+      catalogProviderRef.current = llmProvider
+      catalogModelsRef.current = defaultModelOptions
+      setAvailableModels(defaultModelOptions)
+      setCatalogState({ stale: false, error: null })
+      return
+    }
+    const enteringOpenRouter = catalogProviderRef.current !== 'openrouter'
+    const previousProvider = catalogProviderRef.current
+    const openRouterTransition = enterOpenRouterCatalog({
+      previousProvider,
+      currentModels: availableModels,
+      selectedValue: selectedModelRef.current,
+      rememberedSelection: openRouterSelectionRef.current,
+      keyConfigured: envStatus.openrouter_key_configured,
+    })
+    openRouterSelectionRef.current = openRouterTransition.selectedOpenRouterModel
+    openRouterPreservedSelectionValueRef.current = openRouterTransition.selectedOpenRouterModel?.value || null
+    openRouterPreviousProviderRef.current = openRouterTransition.previousProvider
+    openRouterInitialSelectionRef.current = openRouterTransition.selectedOpenRouterModel
+    catalogProviderRef.current = 'openrouter'
+    if ((enteringOpenRouter && previousProvider !== null) || !envStatus.openrouter_key_configured) {
+      // OpenRouter is provider-scoped and must fail closed without its key;
+      // never leave the previous provider's options selectable during loading.
+      setAvailableModels(openRouterTransition.availableModels)
+      catalogModelsRef.current = openRouterTransition.availableModels
+      setCatalogState({ stale: false, error: null })
+      if (enteringOpenRouter) catalogCommittedRef.current = false
+    }
+    if (shouldLoadOpenRouterCatalog({
+      provider: llmProvider,
+      keyConfigured: envStatus.openrouter_key_configured,
+      isLoading: catalogLoadingRef.current,
+    })) {
+      // Defer the first request until the provider/key state commit has
+      // completed.  This avoids racing the initial Settings snapshot while
+      // keeping the catalog request single and bounded.
+      queueMicrotask(() => loadOpenRouterPage())
+    }
+  }, [catalogLoadReady, llmProvider, envStatus.openrouter_key_configured])
+
+  const loadOpenRouterPage = async (refresh = false) => {
+    if (catalogLoadingRef.current) return null
+    const requestGeneration = catalogRequestGenerationRef.current
+    const requestContext = catalogContextRef.current
+    if (!canCommitCatalogRequest({
+      requestGeneration,
+      currentGeneration: catalogRequestGenerationRef.current,
+      requestProvider: requestContext.provider,
+      currentProvider: catalogContextRef.current.provider,
+      requestKeyConfigured: requestContext.keyConfigured,
+      currentKeyConfigured: catalogContextRef.current.keyConfigured,
+    })) return null
+    catalogLoadingRef.current = true
+    try {
+      const commitPage = ({ models, response }) => {
+        const committed = commitCatalogResponse(catalogModelsRef.current, { ...response, models })
+        catalogModelsRef.current = committed.models
+        catalogCommittedRef.current = true
+        setAvailableModels(committed.models)
+        setCatalogState(committed.state)
+      }
+      const isRequestValid = () => canCommitCatalogRequest({
+        requestGeneration,
+        currentGeneration: catalogRequestGenerationRef.current,
+        requestProvider: requestContext.provider,
+        currentProvider: catalogContextRef.current.provider,
+        requestKeyConfigured: requestContext.keyConfigured,
+        currentKeyConfigured: catalogContextRef.current.keyConfigured,
+      })
+      const data = await loadOpenRouterCatalogPage({
+        refresh,
+        fetchPage: getOpenRouterModels,
+        currentModels: catalogModelsRef.current,
+        selectedModel: openRouterSelectionRef.current,
+        previousProvider: openRouterPreviousProviderRef.current,
+        initialSelection: openRouterInitialSelectionRef.current,
+        keyConfigured: requestContext.keyConfigured,
+        isRequestValid,
+        onPage: commitPage,
+      })
+      if (!data || !isRequestValid()) return null
+      return data
+    } catch (error) {
+      if (canCommitCatalogRequest({
+        requestGeneration,
+        currentGeneration: catalogRequestGenerationRef.current,
+        requestProvider: requestContext.provider,
+        currentProvider: catalogContextRef.current.provider,
+        requestKeyConfigured: requestContext.keyConfigured,
+        currentKeyConfigured: catalogContextRef.current.keyConfigured,
+      })) {
+        setCatalogState({ stale: true, error: getApiErrorMessage(error, 'OpenRouter 模型清單載入失敗') })
+      }
+      return null
+    } finally {
+      catalogLoadingRef.current = false
+    }
+  }
+
   const loadCurrentSettings = async () => {
     try {
       setLoading(true)
@@ -132,17 +284,52 @@ const Settings = () => {
       ])
 
       setCurrentModel(modelData.current_model)
-      setSelectedModel(modelData.current_model) // 初始化選擇的模型
-      setFallbackModel(modelData.fallback_model) // 備用模型
-      if (modelData.available_models && modelData.available_models.length > 0) {
-        setAvailableModels(modelData.available_models)
+      settingsLoadedRef.current = true
+      if (envStatusLoadedRef.current) setCatalogLoadReady(true)
+      setLlmProvider(modelData.provider || 'openai')
+      selectedModelRef.current = modelData.current_model
+      setSelectedModel(modelData.current_model)
+
+      if (modelData.provider === 'openrouter') {
+        const savedCatalogModels = modelData.available_models || []
+        openRouterSelectionRef.current = savedCatalogModels.find((item) => item.value === modelData.current_model)
+          || (modelData.current_model ? { value: modelData.current_model, label: modelData.current_model } : null)
+        openRouterPreservedSelectionValueRef.current = openRouterSelectionRef.current?.value || null
+        // Seed the provider-scoped state from the same validated settings
+        // snapshot used to initialize the form. The live catalog request then
+        // replaces/merges this page without leaving a blank Select during the
+        // initial settings/effect handoff.
+        if (shouldApplySettingsCatalogSnapshot({
+          catalogCommitted: catalogCommittedRef.current,
+          catalogLoading: catalogLoadingRef.current,
+        })) {
+          setAvailableModels(savedCatalogModels)
+          catalogModelsRef.current = savedCatalogModels
+        }
+      } else {
+        openRouterSelectionRef.current = null
+      }
+      // The OpenRouter catalog request owns its live options.  The settings
+      // response can arrive after that request and contains only the saved
+      // selection (often with an empty/stale available_models snapshot); do
+      // not let that parallel response erase a freshly committed first page.
+      if (modelData.provider !== 'openrouter') {
+        setAvailableModels(defaultModelOptions)
+        catalogModelsRef.current = defaultModelOptions
+      }
+      // The catalog request is authoritative once OpenRouter is selected.  Do
+      // not let the parallel settings read replay an older stale/error marker
+      // after a valid catalog response has already committed.
+      if (modelData.provider !== 'openrouter') {
+        setCatalogState({ stale: Boolean(modelData.catalog_stale), error: modelData.catalog_error || null })
       }
       setLlmParams(paramsData)
       setJsonSchemaParams(jsonSchemaData)
 
       form.setFieldsValue({
         llm_model: modelData.current_model,
-        llm_fallback_model: modelData.fallback_model,
+        llm_provider: modelData.provider || 'openai',
+
         ...paramsData,
         ...jsonSchemaData
       })
@@ -186,6 +373,8 @@ const Settings = () => {
     try {
       const data = await getEnvStatus()
       setEnvStatus(data)
+      envStatusLoadedRef.current = true
+      if (settingsLoadedRef.current) setCatalogLoadReady(true)
     } catch (error) {
       console.error('載入環境狀態錯誤:', error)
       message.error('載入環境狀態時發生錯誤')
@@ -253,35 +442,16 @@ const Settings = () => {
   }
 
 
-  const handleSaveOpenAIKey = async (values) => {
+
+  const handleSaveOpenRouterKey = async (values) => {
     try {
       setLoading(true)
-
-      await saveOpenAiApiKey(values.openai_api_key)
-      message.success('OpenAI API Key 設定成功')
+      await updateProviderKey(llmProvider, values.api_key)
+      message.success(`${llmProvider} API Key 設定成功`)
       apiKeyForm.resetFields()
-      window.dispatchEvent(new Event('demo-config-updated'))
-      loadEnvStatus() // 重新載入狀態
+      await loadEnvStatus()
     } catch (error) {
-      console.error('設定 API Key 錯誤:', error)
-      message.error(getApiErrorMessage(error, '設定 API Key 時發生錯誤'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSaveGoogleKey = async (values) => {
-    try {
-      setLoading(true)
-
-      await saveGoogleApiKey(values.google_api_key)
-      message.success('Google API Key 設定成功')
-      googleApiKeyForm.resetFields()
-      window.dispatchEvent(new Event('demo-config-updated'))
-      loadEnvStatus() // 重新載入狀態
-    } catch (error) {
-      console.error('設定 API Key 錯誤:', error)
-      message.error(getApiErrorMessage(error, '設定 API Key 時發生錯誤'))
+      message.error(getApiErrorMessage(error, '設定 OpenRouter API Key 時發生錯誤'))
     } finally {
       setLoading(false)
     }
@@ -289,16 +459,41 @@ const Settings = () => {
 
   // 處理模型選擇變更
   const handleModelChange = (value) => {
+    selectedModelRef.current = value
+    if (llmProvider === 'openrouter') {
+      const nextModels = availableModels
+      setAvailableModels(nextModels)
+      catalogModelsRef.current = nextModels
+      openRouterSelectionRef.current = nextModels.find((item) => item.value === value) || null
+      openRouterPreservedSelectionValueRef.current = null
+    }
     setSelectedModel(value)
     console.log('模型選擇變更為:', value)
   }
 
+  const handleRefreshOpenRouter = async () => {
+    try {
+      setLoading(true)
+      const data = await loadOpenRouterPage(true)
+      if (isSuccessfulCatalogResponse(data)) message.success('OpenRouter 模型清單已更新')
+    } catch (error) {
+      message.error(getApiErrorMessage(error, 'OpenRouter 模型清單更新失敗'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
   // 儲存所有設定（模型 + 參數）
   const handleSaveAllSettings = async (values) => {
     try {
+      const currentModelOptions = llmProvider === 'openrouter' ? catalogModelsRef.current : availableModels
+      if (values.llm_provider === 'openrouter' && (!values.llm_model || !currentModelOptions.some((item) => item.value === values.llm_model))) {
+        throw new Error('請先從目前可用的 OpenRouter 清單選擇並儲存模型')
+      }
       setLoading(true)
 
-      await updateModelSettings(values.llm_model, values.llm_fallback_model)
+      await updateModelSettings(values.llm_model, values.llm_provider || llmProvider)
 
       // 2. 儲存LLM參數設定
       const paramsToSend = {}
@@ -498,6 +693,16 @@ const Settings = () => {
     )
   }
 
+  // Render from state, not only the async coordination ref.  The ref remains
+  // useful for request guards, but changing it alone cannot schedule a React
+  // render after the first catalog response commits.
+  const modelOptions = availableModels
+  const modelSelectOptions = modelOptions.map((option) => ({
+    value: option.value,
+    label: option.label,
+    description: option.description,
+  }))
+
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
       <Title level={2}>
@@ -511,6 +716,15 @@ const Settings = () => {
         <Text type="secondary">
           選擇用於整個系統的語言模型。不同的模型在性能和成本上有所差異。
         </Text>
+        {llmProvider === 'openrouter' && (catalogState.stale || catalogState.error) && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginTop: 12 }}
+            message="OpenRouter 模型清單可能已過期"
+            description={catalogState.error || '請 Refresh 後重新選擇模型。'}
+          />
+        )}
 
         <Divider />
 
@@ -520,9 +734,21 @@ const Settings = () => {
           onFinish={handleSaveAllSettings}
           initialValues={{
             llm_model: currentModel,
-            llm_fallback_model: fallbackModel
+
           }}
         >
+          <Form.Item
+            label="LLM Provider"
+            name="llm_provider"
+            rules={[{ required: true, message: '請選擇 LLM provider' }]}
+          >
+            <Select onChange={(value) => setLlmProvider(value)}>
+              <Option value="openai">OpenAI</Option>
+              <Option value="google">Google</Option>
+              <Option value="openrouter">OpenRouter</Option>
+            </Select>
+          </Form.Item>
+
           <Form.Item
             label="主 LLM 模型"
             name="llm_model"
@@ -534,83 +760,19 @@ const Settings = () => {
             ]}
           >
             <Select
+              key={`${llmProvider}:${modelSelectOptions.length}:${modelSelectOptions[0]?.value || 'empty'}`}
               placeholder="選擇主語言模型"
               style={{ width: '100%' }}
               loading={loading}
-              optionLabelProp="label"
+              options={modelSelectOptions}
+              dropdownStyle={{ maxHeight: 320, overflowY: 'auto' }}
               onChange={handleModelChange}
-            >
-              {availableModels.map((option) => (
-                <Option
-                  key={option.value}
-                  value={option.value}
-                  label={option.label}
-                >
-                  <div style={{ padding: '4px 0' }}>
-                    <div style={{
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                      lineHeight: '1.4',
-                      marginBottom: '4px'
-                    }}>
-                      {option.label}
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#666',
-                      lineHeight: '1.3'
-                    }}>
-                      {option.description}
-                    </div>
-                  </div>
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="備用降級 LLM 模型 (Fallback Model)"
-            name="llm_fallback_model"
-            tooltip="當主模型調用失敗或發生異常時，系統會自動降級至此備用模型以確保服務可用性"
-            rules={[
-              {
-                required: true,
-                message: '請選擇備用語言模型',
-              },
-            ]}
-          >
-            <Select
-              placeholder="選擇備用語言模型"
-              style={{ width: '100%' }}
-              loading={loading}
-              optionLabelProp="label"
-            >
-              {availableModels.map((option) => (
-                <Option
-                  key={option.value}
-                  value={option.value}
-                  label={option.label}
-                >
-                  <div style={{ padding: '4px 0' }}>
-                    <div style={{
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                      lineHeight: '1.4',
-                      marginBottom: '4px'
-                    }}>
-                      {option.label}
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#666',
-                      lineHeight: '1.3'
-                    }}>
-                      {option.description}
-                    </div>
-                  </div>
-                </Option>
-              ))}
-            </Select>
+            />
+            {llmProvider === 'openrouter' && (
+              <Button icon={<ReloadOutlined />} onClick={handleRefreshOpenRouter} loading={loading} style={{ marginTop: 8 }}>
+                Refresh OpenRouter models
+              </Button>
+            )}
           </Form.Item>
 
 
@@ -659,7 +821,7 @@ const Settings = () => {
           API 金鑰設定
         </Title>
         <Text type="secondary">
-          配置 OpenAI API Key 以啟用 AI 功能。系統會自動驗證 API Key 的有效性。
+          選擇 provider 後編輯其 API Key；切換 provider 不會刪除其他 provider 的 Key。
         </Text>
 
         <Divider />
@@ -672,84 +834,24 @@ const Settings = () => {
               <p><strong>.env 檔案：</strong> {envStatus.exists ? '✅ 已存在' : '❌ 不存在'}</p>
               <p><strong>OpenAI API Key：</strong> {envStatus.openai_key_configured ? '✅ 已配置' : '❌ 未配置'}</p>
               <p><strong>Google API Key：</strong> {envStatus.google_key_configured ? '✅ 已配置' : '❌ 未配置'}</p>
+              <p><strong>OpenRouter API Key：</strong> {envStatus.openrouter_key_configured ? '✅ 已配置' : '❌ 未配置'}</p>
             </div>
           }
-          type={envStatus.openai_key_configured && envStatus.google_key_configured ? "success" : "warning"}
+          type={envStatus.openai_key_configured || envStatus.google_key_configured || envStatus.openrouter_key_configured ? "success" : "warning"}
           showIcon
           style={{ marginBottom: 16 }}
         />
 
-        {/* API Key 設定表單 */}
-        <Form
-          form={apiKeyForm}
-          layout="vertical"
-          onFinish={handleSaveOpenAIKey}
-        >
-          <Form.Item
-            label="OpenAI API Key"
-            name="openai_api_key"
-            rules={[
-              {
-                required: true,
-                message: '請輸入 OpenAI API Key',
-              },
-            ]}
-          >
-            <Password
-              placeholder="sk-..."
-              style={{ width: '100%' }}
-            />
+        <Form form={apiKeyForm} layout="vertical" onFinish={handleSaveOpenRouterKey}>
+          <Form.Item label={`${llmProvider} API Key`} name="api_key">
+            <Password placeholder="輸入新 Key；留白則保留原 Key" style={{ width: '100%' }} />
           </Form.Item>
-
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              icon={<SaveOutlined />}
-            >
-              驗證並儲存 OpenAI API Key
-            </Button>
-          </Form.Item>
-        </Form>
-
-        <Divider />
-
-        <Form
-          form={googleApiKeyForm}
-          layout="vertical"
-          onFinish={handleSaveGoogleKey}
-        >
-          <Form.Item
-            label="Google API Key (Gemini)"
-            name="google_api_key"
-            rules={[
-              {
-                required: true,
-                message: '請輸入 Google API Key',
-              },
-            ]}
-          >
-            <Password
-              placeholder="AIza..."
-              style={{ width: '100%' }}
-            />
-          </Form.Item>
-
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              icon={<SaveOutlined />}
-            >
-              驗證並儲存 Google API Key
-            </Button>
-          </Form.Item>
+          <Space>
+            <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />}>儲存目前 Provider Key</Button>
+            <Button danger loading={loading} onClick={() => updateProviderKey(llmProvider, undefined, true).then(() => { message.success('目前 Provider Key 已清除'); loadEnvStatus() }).catch((error) => message.error(getApiErrorMessage(error, '清除 Provider Key 失敗')))}>Clear 目前 Provider Key</Button>
+          </Space>
         </Form>
       </Card>
-
-      {/* LLM參數設定 */}
       {selectedModel && Object.keys(supportedParams).length > 0 && (
         <Card>
           <Title level={4}>LLM 參數設定</Title>

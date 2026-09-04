@@ -1,7 +1,6 @@
 import asyncio
 from io import BytesIO
-import sys
-from types import SimpleNamespace
+
 
 import pytest
 from fastapi import BackgroundTasks, UploadFile
@@ -147,6 +146,10 @@ def test_proposal_generate_contract_with_fake_agent(monkeypatch):
             answer,
         ),
     )
+    monkeypatch.setattr(
+        "backend.core.generation.extract_mof_from_proposal",
+        lambda answer, **kwargs: {"metals": [], "linkers": [], "extracted_text": answer},
+    )
 
     response = run_async(
         generate_proposal(
@@ -285,14 +288,9 @@ def test_upload_stats_contract_uses_cached_vector_stats(monkeypatch):
     }
     refresh_calls = []
 
-    monkeypatch.setitem(
-        sys.modules,
-        "main",
-        SimpleNamespace(
-            get_cached_vector_stats=lambda: cached_stats,
-            update_vector_stats_cache=lambda: refresh_calls.append("called"),
-        ),
-    )
+    import backend.main as main_module
+    monkeypatch.setattr(main_module, "get_cached_vector_stats", lambda: cached_stats)
+    monkeypatch.setattr(main_module, "update_vector_stats_cache", lambda: refresh_calls.append("called"))
 
     stats = run_async(get_vector_stats())
     refreshed_stats = run_async(refresh_vector_stats())
@@ -306,37 +304,56 @@ def test_upload_stats_contract_uses_cached_vector_stats(monkeypatch):
 
 @pytest.mark.fast
 @pytest.mark.api
-def test_settings_model_fallback_contract(monkeypatch):
+def test_settings_model_ignores_legacy_fallback_boundary(monkeypatch):
+    from backend.api.routes import settings as settings_route
     from backend.api.routes.settings import get_model_settings, update_model_settings, ModelSettings
     from backend.core.settings_manager import settings_manager
 
-    # Mock settings manager methods to isolate the test
-    fake_settings = {
-        "llm_model": "gemini-2.5-flash",
-        "llm_fallback_model": "gemini-3-flash-preview"
-    }
+    fake_settings = {"llm_model": "gemini-2.5-flash"}
 
     monkeypatch.setattr(settings_manager, "get_current_model", lambda: fake_settings["llm_model"])
-    monkeypatch.setattr(settings_manager, "get_fallback_model", lambda: fake_settings["llm_fallback_model"])
+    monkeypatch.setattr(settings_manager, "get_provider", lambda: "google")
+    monkeypatch.setattr(settings_route.env_manager, "get_provider_key", lambda name: None)
 
     def mock_set_current_model(model):
         fake_settings["llm_model"] = model
-    def mock_set_fallback_model(model):
-        fake_settings["llm_fallback_model"] = model
-
     monkeypatch.setattr(settings_manager, "set_current_model", mock_set_current_model)
-    monkeypatch.setattr(settings_manager, "set_fallback_model", mock_set_fallback_model)
 
     # Test GET
     response = run_async(get_model_settings())
     assert response.current_model == "gemini-2.5-flash"
-    assert response.fallback_model == "gemini-3-flash-preview"
+    assert not hasattr(response, "fallback_model")
+    assert "llm_fallback_model" not in ModelSettings.__fields__
     assert len(response.available_models) > 0
 
     # Test POST
-    post_data = ModelSettings(llm_model="gemini-2.5-pro", llm_fallback_model="gemini-2.5-flash")
+    post_data = ModelSettings(llm_model="gemini-2.5-pro")
     post_response = run_async(update_model_settings(post_data))
     assert post_response["current_model"] == "gemini-2.5-pro"
-    assert post_response["fallback_model"] == "gemini-2.5-flash"
+    assert "fallback_model" not in post_response
     assert fake_settings["llm_model"] == "gemini-2.5-pro"
-    assert fake_settings["llm_fallback_model"] == "gemini-2.5-flash"
+
+
+@pytest.mark.fast
+@pytest.mark.api
+def test_openrouter_route_returns_complete_catalog_without_pagination(monkeypatch):
+    from backend.api.routes import settings as settings_route
+    from backend.api.routes.settings import get_openrouter_models
+
+    class Catalog:
+        def load(self, refresh=False):
+            assert refresh is False
+            return {
+                "models": [
+                    type("Item", (), {"id": "openai/first", "name": "First", "vendor": "openai"})(),
+                    type("Item", (), {"id": "other/last", "name": "Last", "vendor": "other"})(),
+                ],
+                "stale": False,
+                "error": None,
+            }
+
+    monkeypatch.setattr(settings_route, "_openrouter_catalog", Catalog())
+    result = run_async(get_openrouter_models())
+    assert [item["value"] for item in result["models"]] == ["openai/first", "other/last"]
+    assert "has_more" not in result
+    assert "next_cursor" not in result

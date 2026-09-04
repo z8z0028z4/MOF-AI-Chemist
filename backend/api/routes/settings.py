@@ -9,11 +9,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 import json
-import os
 from pathlib import Path
 
 import sys
-import os
 from pathlib import Path
 
 # 添加項目根目錄到Python路徑
@@ -25,13 +23,16 @@ from backend.core.config import settings, reload_config, validate_config
 from backend.core.settings_manager import settings_manager
 from backend.core.env_manager import env_manager
 from backend.utils.api_key_validator import api_key_validator
+from backend.core.providers.openrouter_provider import OpenRouterCatalog
+
+_openrouter_catalog = OpenRouterCatalog(lambda: env_manager.get_provider_key("OPENROUTER_API_KEY"))
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 class ModelSettings(BaseModel):
     """模型設定模型"""
     llm_model: str
-    llm_fallback_model: Optional[str] = None
+    llm_provider: Optional[str] = None
 
 class LLMParameters(BaseModel):
     """LLM參數設定模型"""
@@ -43,8 +44,10 @@ class LLMParameters(BaseModel):
 class ModelSettingsResponse(BaseModel):
     """模型設定回應模型"""
     current_model: str
-    fallback_model: str
     available_models: list
+    provider: str = "openai"
+    catalog_stale: bool = False
+    catalog_error: Optional[str] = None
 
 
 class LLMParametersResponse(BaseModel):
@@ -77,12 +80,18 @@ class GoogleKeySettings(BaseModel):
     """Google API Key 設定模型"""
     google_api_key: str
 
+class ProviderKeySettings(BaseModel):
+    provider: str
+    api_key: Optional[str] = None
+    clear: bool = False
+
 class EnvFileStatus(BaseModel):
     """環境檔案狀態回應模型"""
     exists: bool
     path: str
     openai_key_configured: bool
     google_key_configured: bool
+    openrouter_key_configured: bool = False
 
 class DevModeSettings(BaseModel):
     """開發模式設定模型"""
@@ -101,9 +110,8 @@ class DemoModeSettings(BaseModel):
 async def get_model_settings():
     """獲取當前LLM模型設定"""
     try:
-        # 獲取當前模型與備用模型
+        # 獲取當前模型；legacy settings are intentionally ignored.
         current_model = settings_manager.get_current_model()
-        fallback_model = settings_manager.get_fallback_model()
 
         # 可用的模型列表
         available_models = [
@@ -149,10 +157,29 @@ async def get_model_settings():
             }
         ]
 
+        provider = settings_manager.get_provider()
+        catalog_stale = False
+        catalog_error = None
+        if provider == "openrouter":
+            key = env_manager.get_provider_key("OPENROUTER_API_KEY")
+            if key:
+                try:
+                    catalog_data = _openrouter_catalog.load()
+                    available_models = [{"value": item.id, "label": item.name, "vendor": item.vendor} for item in catalog_data["models"]]
+                    catalog_stale, catalog_error = catalog_data.get("stale", False), catalog_data.get("error")
+
+                except Exception as exc:
+                    available_models = []
+                    catalog_stale = True
+                    catalog_error = f"Unable to load the OpenRouter model catalog: {exc}"
+            else:
+                available_models = []
         return ModelSettingsResponse(
             current_model=current_model,
-            fallback_model=fallback_model,
-            available_models=available_models
+            available_models=available_models,
+            provider=provider,
+            catalog_stale=catalog_stale,
+            catalog_error=catalog_error,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"獲取設定失敗: {str(e)}")
@@ -161,17 +188,26 @@ async def get_model_settings():
 async def update_model_settings(model_settings: ModelSettings):
     """更新LLM模型設定"""
     try:
+        provider = model_settings.llm_provider or settings_manager.get_provider()
+        if provider == "openrouter":
+            if not model_settings.llm_model or "/" not in model_settings.llm_model:
+                raise ValueError("OpenRouter requires an explicitly selected model")
+            try:
+                eligible = _openrouter_catalog.contains(model_settings.llm_model, refresh=True)
+            except Exception as exc:
+                raise ValueError("OpenRouter model catalog unavailable; refresh and reselect a model") from exc
+            if not eligible:
+                raise ValueError("Selected OpenRouter model is unavailable; refresh and reselect a model")
+        if model_settings.llm_provider:
+            settings_manager.set_provider(model_settings.llm_provider)
         # 使用設定管理器更新主模型
-        settings_manager.set_current_model(model_settings.llm_model)
-
-        # 如果提供了備用模型，同步更新
-        if model_settings.llm_fallback_model:
-            settings_manager.set_fallback_model(model_settings.llm_fallback_model)
+        if model_settings.llm_model:
+            settings_manager.set_current_model(model_settings.llm_model)
 
         return {
             "message": "模型設定已成功更新",
             "current_model": model_settings.llm_model,
-            "fallback_model": settings_manager.get_fallback_model()
+            "provider": settings_manager.get_provider(),
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -303,9 +339,39 @@ async def get_env_file_status():
     """獲取 .env 檔案狀態"""
     try:
         status = env_manager.get_env_file_status()
+        status["openrouter_key_configured"] = bool(env_manager.get_env_variable("OPENROUTER_API_KEY"))
         return EnvFileStatus(**status)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"獲取環境檔案狀態失敗: {str(e)}")
+
+
+@router.post("/provider-key")
+async def set_provider_key(payload: ProviderKeySettings):
+    """Update only the selected provider key; never return key material."""
+    names = {"openai": "OPENAI_API_KEY", "google": "GOOGLE_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
+    env_name = names.get(payload.provider)
+    if not env_name:
+        raise HTTPException(status_code=400, detail="Unsupported provider")
+    if payload.clear:
+        values = env_manager.read_env_file()
+        values.pop(env_name, None)
+        if not env_manager.write_env_file(values):
+            raise HTTPException(status_code=500, detail="Unable to clear provider key")
+        reload_config()
+    elif payload.api_key and payload.api_key.strip():
+        if not env_manager.update_env_variable(env_name, payload.api_key):
+            raise HTTPException(status_code=500, detail="Unable to save provider key")
+        reload_config()
+    return {"provider": payload.provider, "configured": bool(env_manager.get_env_variable(env_name)), "status": "success"}
+
+
+@router.get("/openrouter/models")
+async def get_openrouter_models(refresh: bool = False):
+    try:
+        data = _openrouter_catalog.load(refresh=refresh)
+        return {"models": [{"value": item.id, "label": item.name, "vendor": item.vendor} for item in data["models"]], "stale": data.get("stale", False), "error": data.get("error")}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 from backend.core.llm_client import get_llm_client
 

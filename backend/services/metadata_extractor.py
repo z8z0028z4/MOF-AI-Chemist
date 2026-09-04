@@ -5,19 +5,18 @@
 從PDF和DOCX文件中提取元數據信息。
 
 實作說明：
-- 使用 GPT-5-nano 的 Chat Completions API，並透過 response_format=json_schema 輸出結構化結果。
-- 明確設定 max_tokens=256 以避免在長標題或較長 JSON 結果時因預設輸出預算過小而發生截斷，確保 JSON 可被完整解析。
-- 不使用 temperature（GPT-5-nano 不支援），提升結果穩定性與可重現性。
+- 使用目前選定的 LLM provider facade 進行結構化元數據分類。
+- 由 facade 統一編譯 structured-output 請求，並在本地驗證結果 schema。
+- provider 或結構化結果失敗時 fail closed，不進行純文字修復或 provider fallback。
 """
 
 import os
 import re
-import json
 import logging
-# 移除模組級別的openai導入，改為延遲導入
-# import openai
 from PyPDF2 import PdfReader
 from docx import Document
+from backend.core.generation import call_structured_llm
+from backend.core.llm_provider import parse_and_validate_structured
 
 # 配置日誌
 logger = logging.getLogger(__name__)
@@ -47,19 +46,8 @@ def extract_text_from_docx(docx_path):
         return ""
 
 def gpt_detect_type_and_title(text, filename):
-    """使用GPT判斷文件類型和提取標題"""
+    """使用目前選定的 provider 判斷文件類型和提取標題。"""
     try:
-        # 延遲導入openai，避免模組級別導入問題
-        import openai
-
-        # 從環境變量獲取API密鑰
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.error("未設置OPENAI_API_KEY環境變量")
-            return "unknown", filename
-
-        client = openai.OpenAI(api_key=api_key)
-
         prompt = f"""
         請分析以下文本內容，判斷文件類型為paper或supporting information (SI)，並提取標題。
 
@@ -79,44 +67,22 @@ def gpt_detect_type_and_title(text, filename):
         - unknown: 無法確定類型
         """
 
-        response = client.chat.completions.create(
-            model="gpt-5-nano",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=256,
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "file_classification",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "type": {
-                                "type": "string",
-                                "enum": ["paper", "SI", "unknown"]
-                            },
-                            "title": {
-                                "type": "string"
-                            }
-                        },
-                        "required": ["type", "title"]
-                    }
-                }
-            }
-        )
-
-        result = (response.choices[0].message.content or "").strip()
-
-        # 嘗試解析JSON
-        try:
-            data = json.loads(result)
-            return data.get("type", "unknown"), data.get("title", filename)
-        except json.JSONDecodeError:
-            logger.warning(f"GPT 回傳格式錯誤：{result}")
-            return "unknown", filename
+        schema = {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string", "enum": ["paper", "SI", "unknown"]},
+                "title": {"type": "string"},
+            },
+            "required": ["type", "title"],
+            "additionalProperties": False,
+        }
+        data = call_structured_llm(prompt, schema, max_tokens=256)
+        parse_and_validate_structured(data, schema)
+        return data["type"], data["title"]
 
     except Exception as e:
         logger.warning(f"GPT 調用失敗：{e}")
-        return "unknown", filename
+        raise
 
 def extract_metadata(file_path):
     """提取文件元數據"""
@@ -182,8 +148,7 @@ def extract_metadata(file_path):
                     file_type = "unknown"  # 確保是有效值
             except Exception as e:
                 logger.error(f"LLM分析失敗: {e}")
-                file_type = "unknown"  # 備用值
-                extracted_title = filename
+                raise
 
             # 如果LLM提取到更好的標題，使用它
             if extracted_title and extracted_title != filename:
@@ -203,7 +168,7 @@ def extract_metadata(file_path):
 
     except Exception as e:
         logger.error(f"元數據提取失敗 {file_path}: {e}")
-        return None
+        raise
 
 # 測試代碼
 if __name__ == "__main__":

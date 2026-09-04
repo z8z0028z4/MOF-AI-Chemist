@@ -76,6 +76,19 @@ class SettingsManager:
         """獲取當前LLM模型"""
         return self.get_setting('llm_model', 'gpt-5-mini')
 
+    def get_provider(self) -> str:
+        """Return the explicit provider, migrating legacy model settings safely."""
+        provider = self.get_setting("llm_provider")
+        if provider in {"openai", "google", "openrouter"}:
+            return provider
+        model = self.get_current_model()
+        return "google" if model.startswith("gemini-") else "openai"
+
+    def set_provider(self, provider: str) -> None:
+        if provider not in {"openai", "google", "openrouter"}:
+            raise ValueError("llm_provider must be openai, google, or openrouter")
+        self.set_setting("llm_provider", provider)
+
     def set_current_model(self, model: str):
         """設定當前LLM模型"""
         valid_models = [
@@ -89,7 +102,7 @@ class SettingsManager:
             "gemini-2.5-pro"
         ]
 
-        if model not in valid_models:
+        if model not in valid_models and not (self.get_provider() == "openrouter" and "/" in model):
             raise ValueError(f"無效的模型名稱: {model}")
 
         self.set_setting('llm_model', model)

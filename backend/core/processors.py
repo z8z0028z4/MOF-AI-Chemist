@@ -10,10 +10,9 @@ import logging
 from typing import Dict, List, Any, Optional, Tuple
 
 from .vector_store import load_paper_vectorstore, load_experiment_vectorstore, search_documents
-from .llm_manager import get_default_llm_manager
+from .generation import call_llm, call_structured_llm
 from .schema_manager import get_schema_by_type
 from ..utils import extract_text_snippet
-from ..utils.exceptions import LLMError, VectorStoreError
 
 # 配置日誌
 logger = logging.getLogger(__name__)
@@ -23,7 +22,8 @@ class BaseProcessor:
     """處理器基類"""
 
     def __init__(self):
-        self.llm_manager = get_default_llm_manager()
+        # Provider routing is centralized in backend.core.generation.
+        pass
 
     def _build_context(self, chunks: List[Any]) -> str:
         """構建上下文文本"""
@@ -70,7 +70,7 @@ class AdvancedInferenceProcessor(BaseProcessor):
         prompt = self._build_dual_inference_prompt(question, chunks_paper, experiment_chunks)
 
         # 調用 LLM
-        response = self.llm_manager.generate_response(prompt)
+        response = call_llm(prompt)
 
         return {
             "answer": response,
@@ -145,15 +145,12 @@ class ProposalProcessor(BaseProcessor):
         prompt = self._build_proposal_prompt(question, context)
 
         # 生成結構化回應
-        structured_data = self.llm_manager.generate_structured_response(
+        structured_data = call_structured_llm(
             prompt=prompt,
             schema=schema,
             system_message="你是一個專業的研究提案生成助手，擅長基於文獻分析生成高質量的研究提案。"
         )
 
-        # 驗證回應
-        if not self.llm_manager.validate_response(structured_data, schema):
-            raise LLMError("生成的提案不符合 schema 要求")
 
         # 轉換為文本格式
         text_proposal = self._structured_proposal_to_text(structured_data)
@@ -240,7 +237,7 @@ class InferenceProcessor(BaseProcessor):
         logger.info(f"📦 Paper 向量庫：{paper_vectorstore._collection.count()}")
 
         prompt = self._build_inference_prompt(question, chunks)
-        response = self.llm_manager.generate_response(prompt)
+        response = call_llm(prompt)
 
         return {
             "answer": response,
@@ -297,7 +294,7 @@ class StrictProcessor(BaseProcessor):
         logger.info(f"📦 Paper 向量庫：{paper_vectorstore._collection.count()}")
 
         prompt = self._build_strict_prompt(question, chunks)
-        response = self.llm_manager.generate_response(prompt)
+        response = call_llm(prompt)
 
         return {
             "answer": response,
@@ -355,15 +352,12 @@ class ExperimentDetailProcessor(BaseProcessor):
         prompt = self._build_experiment_detail_prompt(question, context, proposal)
 
         # 生成結構化回應
-        structured_data = self.llm_manager.generate_structured_response(
+        structured_data = call_structured_llm(
             prompt=prompt,
             schema=schema,
             system_message="你是一個專業的實驗設計助手，擅長基於文獻分析生成詳細的實驗方案。"
         )
 
-        # 驗證回應
-        if not self.llm_manager.validate_response(structured_data, schema):
-            raise LLMError("生成的實驗詳情不符合 schema 要求")
 
         # 轉換為文本格式
         text_experiment = self._structured_experiment_to_text(structured_data)
@@ -457,15 +451,12 @@ class InnovationProcessor(BaseProcessor):
         prompt = self._build_innovation_prompt(question, new_context, old_context, proposal)
 
         # 生成結構化回應
-        structured_data = self.llm_manager.generate_structured_response(
+        structured_data = call_structured_llm(
             prompt=prompt,
             schema=schema,
             system_message="你是一個專業的研究創新助手，擅長基於新文獻生成創新的研究想法。"
         )
 
-        # 驗證回應
-        if not self.llm_manager.validate_response(structured_data, schema):
-            raise LLMError("生成的修訂提案不符合 schema 要求")
 
         # 轉換為文本格式
         text_proposal = self._structured_revision_to_text(structured_data)

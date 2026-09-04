@@ -65,6 +65,7 @@ class Settings(BaseSettings):
 
     # Gemini Configuration
     google_api_key: Optional[str] = None
+    openrouter_api_key: Optional[str] = None
     gemini_default_model: str = "gemini-3-flash-preview"
 
     # 化學品查詢配置

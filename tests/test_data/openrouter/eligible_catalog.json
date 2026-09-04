@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "id": "openai/0",
+      "name": "openai/0",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/1",
+      "name": "openai/1",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/10",
+      "name": "openai/10",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/11",
+      "name": "openai/11",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/12",
+      "name": "openai/12",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/13",
+      "name": "openai/13",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/14",
+      "name": "openai/14",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/2",
+      "name": "openai/2",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/3",
+      "name": "openai/3",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/4",
+      "name": "openai/4",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/5",
+      "name": "openai/5",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/6",
+      "name": "openai/6",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/7",
+      "name": "openai/7",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/8",
+      "name": "openai/8",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "openai/9",
+      "name": "openai/9",
+      "vendor": "openai",
+      "vendor_rank": 0
+    },
+    {
+      "id": "anthropic/next",
+      "name": "anthropic/next",
+      "vendor": "anthropic",
+      "vendor_rank": 1
+    }
+  ]
+}
