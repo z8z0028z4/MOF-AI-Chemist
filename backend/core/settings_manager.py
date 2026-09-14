@@ -89,7 +89,19 @@ class SettingsManager:
             raise ValueError("llm_provider must be openai, google, or openrouter")
         self.set_setting("llm_provider", provider)
 
-    def set_current_model(self, model: str):
+    def get_provider_selection(self, provider: str) -> Optional[str]:
+        selections = self.get_setting("llm_provider_selections", {})
+        return selections.get(provider) if isinstance(selections, dict) else None
+
+    def set_provider_selection(self, provider: str, model: str) -> None:
+        selections = self.get_setting("llm_provider_selections", {})
+        if not isinstance(selections, dict):
+            selections = {}
+        selections = dict(selections)
+        selections[provider] = model
+        self.set_setting("llm_provider_selections", selections)
+
+    def set_current_model(self, model: str, provider: Optional[str] = None, catalog: Any = None):
         """設定當前LLM模型"""
         valid_models = [
             "gpt-5",
@@ -102,7 +114,23 @@ class SettingsManager:
             "gemini-2.5-pro"
         ]
 
-        if model not in valid_models and not (self.get_provider() == "openrouter" and "/" in model):
+        selected_provider = provider or self.get_provider()
+        catalog_scoped = selected_provider in {"openai", "google"} and (
+            provider is not None or catalog is not None
+        )
+        if catalog_scoped and catalog is not None:
+            is_catalog_model = catalog.contains(model)
+        else:
+            is_catalog_model = False
+
+        if catalog_scoped:
+            is_valid_model = is_catalog_model
+        else:
+            is_valid_model = model in valid_models or (
+                (selected_provider == "openrouter" and "/" in model)
+                or (selected_provider == "google" and model.startswith("models/gemini-"))
+            )
+        if not is_valid_model:
             raise ValueError(f"無效的模型名稱: {model}")
 
         self.set_setting('llm_model', model)

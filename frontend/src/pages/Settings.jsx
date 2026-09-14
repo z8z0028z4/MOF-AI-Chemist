@@ -1,5 +1,5 @@
 import { InfoCircleOutlined, KeyOutlined, ReloadOutlined, SaveOutlined, SettingOutlined } from '@ant-design/icons'
-import { Alert, Button, Card, Col, Divider, Form, Input, InputNumber, message, Row, Select, Slider, Space, Switch, Typography } from 'antd'
+import { Alert, Button, Card, Col, Divider, Form, Input, InputNumber, message, Modal, Row, Select, Slider, Space, Switch, Typography } from 'antd'
 import React, { useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage } from '../services/apiClient'
 import {
@@ -12,6 +12,8 @@ import {
   getModelParametersInfo,
   getModelSettings,
   getOpenRouterModels,
+  getProviderModels,
+  detectProviderModel,
   updateProviderKey,
   updateDevModeStatus,
   updateDemoModeSettings,
@@ -113,6 +115,9 @@ const Settings = () => {
 
   const [availableModels, setAvailableModels] = useState(defaultModelOptions)
   const [catalogState, setCatalogState] = useState({ stale: false, error: null })
+  const [detectionState, setDetectionState] = useState(null)
+  const [saveModalOpen, setSaveModalOpen] = useState(false)
+  const [pendingSaveValues, setPendingSaveValues] = useState(null)
 
   const catalogLoadingRef = useRef(false)
   const catalogRequestGenerationRef = useRef(0)
@@ -133,7 +138,7 @@ const Settings = () => {
 
   const currentCatalogContext = {
     provider: llmProvider,
-    keyConfigured: Boolean(envStatus.openrouter_key_configured),
+    keyConfigured: Boolean(envStatus[`${llmProvider}_key_configured`]),
   }
   if (
     catalogContextRef.current.provider !== currentCatalogContext.provider
@@ -170,31 +175,21 @@ const Settings = () => {
     // snapshots have been applied; otherwise the later snapshot can reset the
     // provider-scoped options while the first page is committing.
     if (!settingsLoadedRef.current || !envStatusLoadedRef.current) return
-    if (llmProvider !== 'openrouter') {
-      if (catalogProviderRef.current === 'openrouter') {
-        openRouterSelectionRef.current = availableModels.find((item) => item.value === selectedModelRef.current) || null
-      }
-      catalogProviderRef.current = llmProvider
-      catalogModelsRef.current = defaultModelOptions
-      setAvailableModels(defaultModelOptions)
-      setCatalogState({ stale: false, error: null })
-      return
-    }
-    const enteringOpenRouter = catalogProviderRef.current !== 'openrouter'
+    const enteringOpenRouter = catalogProviderRef.current !== llmProvider
     const previousProvider = catalogProviderRef.current
     const openRouterTransition = enterOpenRouterCatalog({
       previousProvider,
       currentModels: availableModels,
       selectedValue: selectedModelRef.current,
       rememberedSelection: openRouterSelectionRef.current,
-      keyConfigured: envStatus.openrouter_key_configured,
+      keyConfigured: currentCatalogContext.keyConfigured,
     })
     openRouterSelectionRef.current = openRouterTransition.selectedOpenRouterModel
     openRouterPreservedSelectionValueRef.current = openRouterTransition.selectedOpenRouterModel?.value || null
     openRouterPreviousProviderRef.current = openRouterTransition.previousProvider
     openRouterInitialSelectionRef.current = openRouterTransition.selectedOpenRouterModel
-    catalogProviderRef.current = 'openrouter'
-    if ((enteringOpenRouter && previousProvider !== null) || !envStatus.openrouter_key_configured) {
+    catalogProviderRef.current = llmProvider
+    if ((enteringOpenRouter && previousProvider !== null) || !currentCatalogContext.keyConfigured) {
       // OpenRouter is provider-scoped and must fail closed without its key;
       // never leave the previous provider's options selectable during loading.
       setAvailableModels(openRouterTransition.availableModels)
@@ -204,7 +199,7 @@ const Settings = () => {
     }
     if (shouldLoadOpenRouterCatalog({
       provider: llmProvider,
-      keyConfigured: envStatus.openrouter_key_configured,
+      keyConfigured: currentCatalogContext.keyConfigured,
       isLoading: catalogLoadingRef.current,
     })) {
       // Defer the first request until the provider/key state commit has
@@ -245,7 +240,9 @@ const Settings = () => {
       })
       const data = await loadOpenRouterCatalogPage({
         refresh,
-        fetchPage: getOpenRouterModels,
+        fetchPage: (isRefresh) => llmProvider === 'openrouter'
+          ? getOpenRouterModels(isRefresh)
+          : getProviderModels(llmProvider, isRefresh),
         currentModels: catalogModelsRef.current,
         selectedModel: openRouterSelectionRef.current,
         previousProvider: openRouterPreviousProviderRef.current,
@@ -314,8 +311,8 @@ const Settings = () => {
       // selection (often with an empty/stale available_models snapshot); do
       // not let that parallel response erase a freshly committed first page.
       if (modelData.provider !== 'openrouter') {
-        setAvailableModels(defaultModelOptions)
-        catalogModelsRef.current = defaultModelOptions
+        setAvailableModels(modelData.available_models || [])
+        catalogModelsRef.current = modelData.available_models || []
       }
       // The catalog request is authoritative once OpenRouter is selected.  Do
       // not let the parallel settings read replay an older stale/error marker
@@ -468,16 +465,27 @@ const Settings = () => {
       openRouterPreservedSelectionValueRef.current = null
     }
     setSelectedModel(value)
+    setDetectionState(null)
     console.log('模型選擇變更為:', value)
   }
 
-  const handleRefreshOpenRouter = async () => {
+  const handleDetectModel = async () => {
+    if (!selectedModel || llmProvider === 'openrouter') return
+    setDetectionState({ status: 'checking', message: '正在檢測選定模型…' })
+    try {
+      setDetectionState(await detectProviderModel(llmProvider, selectedModel))
+    } catch (error) {
+      setDetectionState({ status: 'transient', message: getApiErrorMessage(error, '模型檢測失敗；這不代表模型不支援') })
+    }
+  }
+
+  const handleRefreshModels = async () => {
     try {
       setLoading(true)
       const data = await loadOpenRouterPage(true)
-      if (isSuccessfulCatalogResponse(data)) message.success('OpenRouter 模型清單已更新')
+      if (isSuccessfulCatalogResponse(data)) message.success(`${llmProvider} 模型清單已更新`)
     } catch (error) {
-      message.error(getApiErrorMessage(error, 'OpenRouter 模型清單更新失敗'))
+      message.error(getApiErrorMessage(error, `${llmProvider} 模型清單更新失敗`))
     } finally {
       setLoading(false)
     }
@@ -485,7 +493,7 @@ const Settings = () => {
 
 
   // 儲存所有設定（模型 + 參數）
-  const handleSaveAllSettings = async (values) => {
+  const persistAllSettings = async (values) => {
     try {
       const currentModelOptions = llmProvider === 'openrouter' ? catalogModelsRef.current : availableModels
       if (values.llm_provider === 'openrouter' && (!values.llm_model || !currentModelOptions.some((item) => item.value === values.llm_model))) {
@@ -533,58 +541,15 @@ const Settings = () => {
     }
   }
 
-  // 重置為預設設定
-  const handleResetToDefault = async () => {
-    try {
-      setLoading(true)
-
-      // 設定預設值：gpt-5-mini 與預設設定
-      const defaultSettings = {
-        llm_model: 'gpt-5-mini',
-        max_tokens: 4000,
-        timeout: 120,
-        reasoning_effort: 'medium',
-        verbosity: 'medium'
-      }
-
-      await updateModelSettings(defaultSettings.llm_model)
-      await updateLlmParameters({
-        max_tokens: defaultSettings.max_tokens,
-        timeout: defaultSettings.timeout,
-        reasoning_effort: defaultSettings.reasoning_effort,
-        verbosity: defaultSettings.verbosity
-      })
-
-      message.success('已重置為預設設定 (GPT-5 Mini)')
-
-      // 更新本地狀態
-      setCurrentModel(defaultSettings.llm_model)
-      setSelectedModel(defaultSettings.llm_model)
-      setLlmParams({
-        max_tokens: defaultSettings.max_tokens,
-        timeout: defaultSettings.timeout,
-        reasoning_effort: defaultSettings.reasoning_effort,
-        verbosity: defaultSettings.verbosity
-      })
-
-      // 更新表單
-      form.setFieldsValue({
-        llm_model: defaultSettings.llm_model,
-        max_tokens: defaultSettings.max_tokens,
-        timeout: defaultSettings.timeout,
-        reasoning_effort: defaultSettings.reasoning_effort,
-        verbosity: defaultSettings.verbosity
-      })
-
-      // 重新載入參數資訊
-      await loadModelParametersInfo(defaultSettings.llm_model)
-    } catch (error) {
-      console.error('重置設定錯誤:', error)
-      message.error(getApiErrorMessage(error, '重置設定時發生錯誤'))
-    } finally {
-      setLoading(false)
+  const handleSaveAllSettings = async (values) => {
+    if (values.llm_provider !== 'openrouter') {
+      setPendingSaveValues(values)
+      setSaveModalOpen(true)
+      return
     }
+    await persistAllSettings(values)
   }
+
 
   // 渲染參數控制項
   const renderParameterControl = (paramName, paramConfig) => {
@@ -716,12 +681,12 @@ const Settings = () => {
         <Text type="secondary">
           選擇用於整個系統的語言模型。不同的模型在性能和成本上有所差異。
         </Text>
-        {llmProvider === 'openrouter' && (catalogState.stale || catalogState.error) && (
+        {(catalogState.stale || catalogState.error) && (
           <Alert
             type="warning"
             showIcon
             style={{ marginTop: 12 }}
-            message="OpenRouter 模型清單可能已過期"
+            message={`${llmProvider} 模型清單可能已過期`}
             description={catalogState.error || '請 Refresh 後重新選擇模型。'}
           />
         )}
@@ -742,7 +707,12 @@ const Settings = () => {
             name="llm_provider"
             rules={[{ required: true, message: '請選擇 LLM provider' }]}
           >
-            <Select onChange={(value) => setLlmProvider(value)}>
+            <Select onChange={(value) => {
+              setLlmProvider(value)
+              setSelectedModel('')
+              setDetectionState(null)
+              form.setFieldValue('llm_model', undefined)
+            }}>
               <Option value="openai">OpenAI</Option>
               <Option value="google">Google</Option>
               <Option value="openrouter">OpenRouter</Option>
@@ -768,10 +738,21 @@ const Settings = () => {
               dropdownStyle={{ maxHeight: 320, overflowY: 'auto' }}
               onChange={handleModelChange}
             />
-            {llmProvider === 'openrouter' && (
-              <Button icon={<ReloadOutlined />} onClick={handleRefreshOpenRouter} loading={loading} style={{ marginTop: 8 }}>
-                Refresh OpenRouter models
+            <Button icon={<ReloadOutlined />} onClick={handleRefreshModels} loading={loading} style={{ marginTop: 8 }}>
+                Refresh {llmProvider} models
+            </Button>
+            {llmProvider !== 'openrouter' && (
+              <Button onClick={handleDetectModel} loading={detectionState?.status === 'checking'} style={{ marginTop: 8, marginLeft: 8 }}>
+                模型檢測
               </Button>
+            )}
+            {detectionState && detectionState.status !== 'checking' && (
+              <Alert
+                type={detectionState.status === 'success' ? 'success' : 'warning'}
+                showIcon
+                message={detectionState.message}
+                style={{ marginTop: 8 }}
+              />
             )}
           </Form.Item>
 
@@ -802,13 +783,7 @@ const Settings = () => {
               >
                 儲存所有設定
               </Button>
-              <Button
-                onClick={handleResetToDefault}
-                disabled={loading}
-                icon={<ReloadOutlined />}
-              >
-                重置為預設 (GPT-5 Mini)
-              </Button>
+
             </Space>
           </Form.Item>
         </Form>
@@ -1079,6 +1054,19 @@ const Settings = () => {
           />
         </Card>
       )}
+      <Modal
+        title="結構化輸出需求確認"
+        open={saveModalOpen}
+        onCancel={() => { setSaveModalOpen(false); setPendingSaveValues(null) }}
+        footer={[
+          <Button key="cancel" onClick={() => { setSaveModalOpen(false); setPendingSaveValues(null) }}>取消</Button>,
+          <Button key="detect" onClick={() => { setSaveModalOpen(false); handleDetectModel() }}>模型檢測</Button>,
+          <Button key="save" type="primary" onClick={() => { setSaveModalOpen(false); persistAllSettings(pendingSaveValues); setPendingSaveValues(null) }}>仍要儲存</Button>,
+        ]}
+      >
+        <p>此 App 需要模型回傳符合 JSON Schema 的結構化輸出。模型清單只是 provider 發現的候選，並不代表已支援此能力。</p>
+        <p>你可以先執行模型檢測，也可以不檢測而直接儲存；檢測失敗不會阻止儲存。</p>
+      </Modal>
     </div>
   )
 }

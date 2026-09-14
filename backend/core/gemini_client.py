@@ -9,6 +9,7 @@ from backend.utils.logger import get_logger
 from backend.core.config import settings
 from backend.core import demo_config
 from backend.utils.exceptions import LLMError, APIRequestError
+from backend.core.llm_provider import sanitize_schema_for_gemini
 
 logger = get_logger(__name__)
 
@@ -101,7 +102,7 @@ class GeminiClient:
 
             # Set response MIME type to JSON
             config.response_mime_type = "application/json"
-            config.response_schema = self._sanitize_schema(response_schema)
+            config.response_schema = sanitize_schema_for_gemini(response_schema)
 
             response = await self.client.aio.models.generate_content(
                 model=model,
@@ -185,7 +186,7 @@ class GeminiClient:
                 config = types.GenerateContentConfig()
 
             config.response_mime_type = "application/json"
-            config.response_schema = self._sanitize_schema(response_schema)
+            config.response_schema = sanitize_schema_for_gemini(response_schema)
 
             response = self.client.models.generate_content(
                 model=model,

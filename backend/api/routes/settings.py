@@ -24,8 +24,13 @@ from backend.core.settings_manager import settings_manager
 from backend.core.env_manager import env_manager
 from backend.utils.api_key_validator import api_key_validator
 from backend.core.providers.openrouter_provider import OpenRouterCatalog
+from backend.core.providers.provider_catalog import ProviderCatalog
 
 _openrouter_catalog = OpenRouterCatalog(lambda: env_manager.get_provider_key("OPENROUTER_API_KEY"))
+_provider_catalogs = {
+    "openai": ProviderCatalog("openai", lambda: env_manager.get_provider_key("OPENAI_API_KEY")),
+    "google": ProviderCatalog("google", lambda: env_manager.get_provider_key("GOOGLE_API_KEY")),
+}
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -84,6 +89,9 @@ class ProviderKeySettings(BaseModel):
     provider: str
     api_key: Optional[str] = None
     clear: bool = False
+
+class ModelDetectionRequest(BaseModel):
+    model: str
 
 class EnvFileStatus(BaseModel):
     """環境檔案狀態回應模型"""
@@ -160,7 +168,14 @@ async def get_model_settings():
         provider = settings_manager.get_provider()
         catalog_stale = False
         catalog_error = None
-        if provider == "openrouter":
+        if provider in _provider_catalogs:
+            catalog_data = _provider_catalogs[provider].load()
+            available_models = [item.as_dict() for item in catalog_data["models"]]
+            catalog_stale, catalog_error = catalog_data["stale"], catalog_data["error"]
+            saved_model = settings_manager.get_provider_selection(provider)
+            if saved_model and any(item["value"] == saved_model for item in available_models):
+                current_model = saved_model
+        elif provider == "openrouter":
             key = env_manager.get_provider_key("OPENROUTER_API_KEY")
             if key:
                 try:
@@ -189,7 +204,13 @@ async def update_model_settings(model_settings: ModelSettings):
     """更新LLM模型設定"""
     try:
         provider = model_settings.llm_provider or settings_manager.get_provider()
-        if provider == "openrouter":
+        if provider in _provider_catalogs:
+            key = env_manager.get_provider_key(f"{provider.upper()}_API_KEY")
+            if not key:
+                raise ValueError(f"{provider.title()} API key is required before selecting a model")
+            if not _provider_catalogs[provider].contains(model_settings.llm_model):
+                raise ValueError(f"Selected {provider.title()} model is unavailable; refresh and reselect a model")
+        elif provider == "openrouter":
             if not model_settings.llm_model or "/" not in model_settings.llm_model:
                 raise ValueError("OpenRouter requires an explicitly selected model")
             try:
@@ -202,7 +223,12 @@ async def update_model_settings(model_settings: ModelSettings):
             settings_manager.set_provider(model_settings.llm_provider)
         # 使用設定管理器更新主模型
         if model_settings.llm_model:
-            settings_manager.set_current_model(model_settings.llm_model)
+            settings_manager.set_current_model(
+                model_settings.llm_model,
+                provider=provider,
+                catalog=_provider_catalogs.get(provider),
+            )
+            settings_manager.set_provider_selection(provider, model_settings.llm_model)
 
         return {
             "message": "模型設定已成功更新",
@@ -372,6 +398,31 @@ async def get_openrouter_models(refresh: bool = False):
         return {"models": [{"value": item.id, "label": item.name, "vendor": item.vendor} for item in data["models"]], "stale": data.get("stale", False), "error": data.get("error")}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/models/{provider}")
+async def get_provider_models(provider: str, refresh: bool = False):
+    """Load or explicitly refresh only the selected provider catalog."""
+    catalog = _provider_catalogs.get(provider)
+    if catalog is None:
+        raise HTTPException(status_code=404, detail="Unsupported provider catalog")
+    data = catalog.load(refresh=refresh)
+    return {"provider": provider, "models": [item.as_dict() for item in data["models"]],
+            "stale": data["stale"], "error": data["error"]}
+
+
+@router.post("/models/{provider}/detect")
+async def detect_provider_model(provider: str, payload: ModelDetectionRequest):
+    """Advisory, single-model structured-output check; never persists data."""
+    catalog = _provider_catalogs.get(provider)
+    if catalog is None:
+        raise HTTPException(status_code=404, detail="Unsupported provider detection")
+    if not env_manager.get_provider_key(f"{provider.upper()}_API_KEY"):
+        raise HTTPException(status_code=400, detail=f"{provider.title()} API key is required before model detection")
+    if not catalog.contains(payload.model):
+        raise HTTPException(status_code=400, detail="Selected model is not in the provider catalog")
+    result = catalog.detect_structured_output(payload.model)
+    return {"provider": provider, "model": payload.model, **result}
 
 from backend.core.llm_client import get_llm_client
 

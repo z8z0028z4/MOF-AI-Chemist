@@ -33,6 +33,17 @@ export function getOpenRouterModels(refresh = false) {
   return requestJson(`/settings/openrouter/models${query ? `?${query}` : ''}`)
 }
 
+export function getProviderModels(provider, refresh = false) {
+  return requestJson(`/settings/models/${encodeURIComponent(provider)}${refresh ? '?refresh=true' : ''}`)
+}
+
+export function detectProviderModel(provider, model) {
+  return requestJson(`/settings/models/${encodeURIComponent(provider)}/detect`, {
+    method: 'POST',
+    json: { model },
+  })
+}
+
 export function updateProviderKey(provider, apiKey, clear = false) {
   return requestJson('/settings/provider-key', {
     method: 'POST',

@@ -14,6 +14,7 @@ from backend.utils.logger import get_logger
 from backend.utils.exceptions import LLMError, APIRequestError
 from backend.core import demo_config
 from backend.core.tls import tls_verify_setting
+from backend.core.llm_provider import extract_structured_text
 
 # 嘗試導入 Gemini 客戶端，如果 google-genai 未安裝則優雅處理
 try:
@@ -81,8 +82,8 @@ class LLMClient:
             # 根據模型類型選擇不同的調用方式
             if model.startswith('gpt-5'):
                 return self._call_gpt5_responses_api(prompt, model, llm_params, **kwargs)
-            elif model.startswith('gemini-'):
-                return self.gemini_client.generate_content_sync(model, prompt)
+            elif model.startswith('gemini-') or model.startswith('models/gemini-'):
+                return self.gemini_client.generate_content_sync(model.removeprefix('models/'), prompt)
             else:
                 return self._call_gpt4_chat_api(prompt, model, llm_params, **kwargs)
 
@@ -246,12 +247,8 @@ class LLMClient:
             if demo_config.is_active_stage_demo_or_any():
                 raise LLMError("Refusing real LLM call: demo mode is active for this request stage")
 
-            if model.startswith('gemini-'):
-                return self.gemini_client.generate_structured_content_sync(model, prompt, schema)
-
-            # 只支援 GPT-5 系列 (和 Gemini)
-            if not model.startswith('gpt-5'):
-                raise LLMError(f"不支援的模型：{model}，只支援 GPT-5 系列和 Gemini")
+            if model.startswith('gemini-') or model.startswith('models/gemini-'):
+                return self.gemini_client.generate_structured_content_sync(model.removeprefix('models/'), prompt, schema)
 
             return self._call_gpt5_structured_api(prompt, schema, model, llm_params, **kwargs)
 
@@ -342,33 +339,16 @@ class LLMClient:
                             time.sleep(2)
                             continue
 
-                    # 提取 JSON 內容
-                    if hasattr(response, 'output_text') and response.output_text:
+                    # Extract JSON content using the shared SDK/REST adapter.
+                    output_text = extract_structured_text(response)
+                    if output_text:
                         try:
-                            result = json.loads(response.output_text)
+                            result = json.loads(output_text)
                             logger.info("成功解析 JSON 結構化提案")
                             return result
                         except json.JSONDecodeError as e:
                             logger.error(f"JSON 解析失敗: {e}")
-                            logger.debug(f"嘗試的文本: {response.output_text[:200]}...")
-
-                    # 如果 output_text 失敗，嘗試從 output 提取
-                    if hasattr(response, 'output') and response.output:
-                        text_content = ""
-                        for item in response.output:
-                            if hasattr(item, 'message') and hasattr(item.message, 'content'):
-                                for content in item.message.content:
-                                    if hasattr(content, 'text') and content.text:
-                                        text_content += content.text
-
-                        if text_content:
-                            try:
-                                result = json.loads(text_content)
-                                logger.info("成功解析 JSON 結構化提案")
-                                return result
-                            except json.JSONDecodeError as e:
-                                logger.error(f"JSON 解析失敗: {e}")
-                                logger.debug(f"嘗試的文本: {text_content[:200]}...")
+                            logger.debug(f"嘗試的文本: {output_text[:200]}...")
 
                     logger.warning("無法從 Responses API 提取 JSON 內容")
 

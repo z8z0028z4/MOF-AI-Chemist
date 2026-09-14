@@ -168,6 +168,28 @@ class TestSettingsManager:
         with pytest.raises(ValueError):
             settings_manager.set_current_model("invalid-model")
 
+    @pytest.mark.unit
+    def test_catalog_valid_dynamic_openai_model_is_accepted_by_manager(self):
+        """Provider catalog membership is the dynamic Save-time allowlist."""
+        from backend.core.settings_manager import SettingsManager
+
+        settings_manager = SettingsManager()
+        settings_manager.settings_file = self.test_settings_file
+        settings_manager._current_settings = {"llm_provider": "openai"}
+
+        class Catalog:
+            def contains(self, model):
+                return model == "gpt-4.1"
+
+        settings_manager.set_current_model("gpt-4.1", provider="openai", catalog=Catalog())
+        assert settings_manager.get_current_model() == "gpt-4.1"
+
+        with pytest.raises(ValueError, match="無效的模型名稱"):
+            settings_manager.set_current_model("gpt-not-in-catalog", provider="openai", catalog=Catalog())
+
+        with pytest.raises(ValueError, match="無效的模型名稱"):
+            settings_manager.set_current_model("gpt-5", provider="openai", catalog=Catalog())
+
     def test_real_fallback_model_management(self):
         """測試備用模型管理功能"""
         from backend.core.settings_manager import SettingsManager

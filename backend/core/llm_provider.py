@@ -14,6 +14,53 @@ class ProviderUnavailableError(RuntimeError):
     """The selected provider/model cannot currently satisfy the contract."""
 
 
+def _response_value(response: Any, key: str) -> Any:
+    if isinstance(response, Mapping):
+        return response.get(key)
+    return getattr(response, key, None)
+
+
+def extract_structured_text(response: Any) -> Optional[str]:
+    """Extract Responses text from SDK objects and REST-shaped mappings."""
+    output_text = _response_value(response, "output_text")
+    if isinstance(output_text, str) and output_text:
+        return output_text
+    output = _response_value(response, "output")
+    if not isinstance(output, (list, tuple)):
+        return None
+    parts: list[str] = []
+    for item in output:
+        containers = [item]
+        message = _response_value(item, "message")
+        if message is not None:
+            containers.append(message)
+        for container in containers:
+            content = _response_value(container, "content")
+            if not isinstance(content, (list, tuple)):
+                continue
+            for entry in content:
+                text = _response_value(entry, "text")
+                if isinstance(text, str) and text:
+                    parts.append(text)
+    return "".join(parts) or None
+
+
+def sanitize_schema_for_gemini(schema: Any) -> Any:
+    """Apply the existing Gemini structured-schema compatibility transform."""
+    if not isinstance(schema, dict):
+        return schema
+    sanitized = {key: value for key, value in schema.items()
+                 if key not in {"title", "additionalProperties"}}
+    if isinstance(sanitized.get("properties"), dict):
+        sanitized["properties"] = {
+            key: sanitize_schema_for_gemini(value)
+            for key, value in sanitized["properties"].items()
+        }
+    if "items" in sanitized:
+        sanitized["items"] = sanitize_schema_for_gemini(sanitized["items"])
+    return sanitized
+
+
 @dataclass(frozen=True)
 class StructuredGenerationRequest:
     model: str

@@ -417,6 +417,10 @@ def test_settings_has_one_provider_selector_and_renders_catalog_errors():
     assert 'dropdownStyle={{ maxHeight: 320, overflowY: \'auto\' }}' in source
     assert "catalogState.error" in source
     assert "modelData.catalog_error" in source
+    assert "handleResetToDefault" not in source
+    assert "重置為預設" not in source
+    assert "getProviderModels(llmProvider, isRefresh)" in source
+    assert "Refresh {llmProvider} models" in source
 
 
 @pytest.mark.asyncio

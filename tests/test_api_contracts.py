@@ -324,14 +324,91 @@ def test_settings_model_ignores_legacy_fallback_boundary(monkeypatch):
     assert response.current_model == "gemini-2.5-flash"
     assert not hasattr(response, "fallback_model")
     assert "llm_fallback_model" not in ModelSettings.__fields__
-    assert len(response.available_models) > 0
+    assert response.available_models == []
+    assert "Google API key" in response.catalog_error
 
     # Test POST
     post_data = ModelSettings(llm_model="gemini-2.5-pro")
-    post_response = run_async(update_model_settings(post_data))
-    assert post_response["current_model"] == "gemini-2.5-pro"
-    assert "fallback_model" not in post_response
-    assert fake_settings["llm_model"] == "gemini-2.5-pro"
+    with pytest.raises(settings_route.HTTPException) as failure:
+        run_async(update_model_settings(post_data))
+    assert failure.value.status_code == 400
+    assert "Google API key" in failure.value.detail
+    assert fake_settings["llm_model"] == "gemini-2.5-flash"
+
+
+@pytest.mark.fast
+@pytest.mark.api
+def test_google_documented_namespaced_model_saves_and_invalid_selection_is_atomic(monkeypatch):
+    from backend.api.routes import settings as settings_route
+    from backend.api.routes.settings import ModelSettings, update_model_settings
+    from backend.core.settings_manager import settings_manager
+
+    state = {"provider": "google", "model": "models/gemini-2.5-pro", "selection": None}
+
+    class Catalog:
+        def contains(self, model):
+            return model == "models/gemini-2.5-pro"
+
+    monkeypatch.setattr(settings_route, "_provider_catalogs", {"google": Catalog()})
+    monkeypatch.setattr(settings_route.env_manager, "get_provider_key", lambda name: "configured")
+    monkeypatch.setattr(settings_manager, "get_provider", lambda: state["provider"])
+    monkeypatch.setattr(settings_manager, "set_provider", lambda provider: state.__setitem__("provider", provider))
+    monkeypatch.setattr(settings_manager, "set_current_model", lambda model, **kwargs: state.__setitem__("model", model))
+    monkeypatch.setattr(settings_manager, "set_provider_selection", lambda provider, model: state.__setitem__("selection", (provider, model)))
+
+    original = dict(state)
+    with pytest.raises(settings_route.HTTPException) as failure:
+        run_async(update_model_settings(ModelSettings(llm_provider="google", llm_model="models/gemini-unknown")))
+    assert failure.value.status_code == 400
+    assert state == original
+
+    response = run_async(update_model_settings(ModelSettings(llm_provider="google", llm_model="models/gemini-2.5-pro")))
+    assert response["provider"] == "google"
+    assert state == {"provider": "google", "model": "models/gemini-2.5-pro", "selection": ("google", "models/gemini-2.5-pro")}
+
+
+@pytest.mark.fast
+@pytest.mark.api
+@pytest.mark.parametrize("provider", ["openai", "google"])
+def test_provider_catalog_route_is_registered_and_refresh_is_provider_scoped(monkeypatch, provider):
+    from backend.api.routes import settings as settings_route
+    from backend.main import app
+
+    calls = []
+
+    class Catalog:
+        def load(self, refresh=False):
+            calls.append(refresh)
+            return {"models": [], "stale": False, "error": None}
+
+    assert "/api/v1/settings/models/{provider}" in {getattr(route, "path", None) for route in app.routes}
+    monkeypatch.setattr(settings_route, "_provider_catalogs", {provider: Catalog()})
+
+    response = run_async(settings_route.get_provider_models(provider, refresh=True))
+
+    assert response == {"provider": provider, "models": [], "stale": False, "error": None}
+    assert calls == [True]
+
+
+@pytest.mark.fast
+@pytest.mark.api
+def test_model_detection_route_is_scoped_and_returns_safe_advisory(monkeypatch):
+    from backend.api.routes import settings as settings_route
+    from backend.main import app
+
+    class Catalog:
+        def contains(self, model):
+            return model == "gpt-4.1"
+
+        def detect_structured_output(self, model):
+            assert model == "gpt-4.1"
+            return {"status": "schema_rejected", "message": "Provider rejected the structured-output request or returned invalid JSON"}
+
+    assert "/api/v1/settings/models/{provider}/detect" in {getattr(route, "path", None) for route in app.routes}
+    monkeypatch.setattr(settings_route, "_provider_catalogs", {"openai": Catalog()})
+    monkeypatch.setattr(settings_route.env_manager, "get_provider_key", lambda name: "configured")
+    response = run_async(settings_route.detect_provider_model("openai", settings_route.ModelDetectionRequest(model="gpt-4.1")))
+    assert response == {"provider": "openai", "model": "gpt-4.1", "status": "schema_rejected", "message": "Provider rejected the structured-output request or returned invalid JSON"}
 
 
 @pytest.mark.fast

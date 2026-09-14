@@ -15,7 +15,7 @@ export const normalizeCatalogVendor = (item) => {
 }
 
 export const shouldLoadOpenRouterCatalog = ({ provider, keyConfigured, isLoading }) => (
-  provider === 'openrouter' && keyConfigured && !isLoading
+  ['openai', 'google', 'openrouter'].includes(provider) && keyConfigured && !isLoading
 )
 
 export const shouldApplySettingsCatalogSnapshot = ({ catalogCommitted, catalogLoading }) => (
@@ -40,7 +40,7 @@ export const canCommitCatalogRequest = ({
 }) => (
   requestGeneration === currentGeneration
   && requestProvider === currentProvider
-  && requestProvider === 'openrouter'
+  && ['openai', 'google', 'openrouter'].includes(requestProvider)
   && requestKeyConfigured === currentKeyConfigured
   && currentKeyConfigured
 )

@@ -160,7 +160,7 @@ assert.equal(shouldLoadOpenRouterCatalog({
   isLoading: false,
   existingModels: laterPage,
 }), true)
-assert.equal(shouldLoadOpenRouterCatalog({ provider: 'openai', keyConfigured: true, isLoading: false }), false)
+assert.equal(shouldLoadOpenRouterCatalog({ provider: 'openai', keyConfigured: true, isLoading: false }), true)
 // An in-flight response is discardable after either provider or key context
 // changes, while the unchanged configured OpenRouter context remains valid.
 assert.equal(canCommitCatalogRequest({
