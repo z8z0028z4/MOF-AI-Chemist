@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+const frontendPort = Number(process.env.MOF_FRONTEND_PORT || 3000)
+const backendPort = Number(process.env.MOF_BACKEND_PORT || 8000)
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -11,11 +14,11 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
-    host: true, // 允許外部訪問
+    port: frontendPort,
+    host: '127.0.0.1', // 僅允許本機訪問
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: `http://localhost:${backendPort}`,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path,

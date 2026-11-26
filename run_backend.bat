@@ -34,4 +34,4 @@ if not exist "%VENV_ACTIVATE%" (
 call "%VENV_ACTIVATE%"
 
 echo Starting backend service...
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
+uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload --log-level info

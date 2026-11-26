@@ -61,7 +61,7 @@ Packaging assets:
   - Prints API docs as `http://localhost:8000/api/docs`.
 - `run_backend.bat`
   - Activates configured venv.
-  - Runs `uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload`.
+  - Runs `uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload`.
 - `restart_backend.bat`
   - Loads `.venv_config`.
   - Runs `taskkill /f /im python.exe`.
