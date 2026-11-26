@@ -68,9 +68,9 @@ echo.
 
 REM Start backend service
 if exist "backend\main.py" (
-    uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
+    uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload --log-level info
 ) else if exist "main.py" (
-    uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level info
+    uvicorn main:app --host 127.0.0.1 --port 8000 --reload --log-level info
 ) else (
     echo ERROR: Backend main.py not found
     pause

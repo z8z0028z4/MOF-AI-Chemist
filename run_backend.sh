@@ -23,4 +23,4 @@ for CA_VAR in REQUESTS_CA_BUNDLE SSL_CERT_FILE; do
 done
 
 echo "Starting backend service..."
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir backend --log-level info
+uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend --log-level info

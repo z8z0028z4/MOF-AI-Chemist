@@ -10,6 +10,9 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}   AI Research Assistant - Linux Start   ${NC}"
 echo -e "${BLUE}========================================${NC}"
 
+BACKEND_PORT="${MOF_BACKEND_PORT:-8000}"
+FRONTEND_PORT="${MOF_FRONTEND_PORT:-3000}"
+
 # Navigate to script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
@@ -40,7 +43,7 @@ for CA_VAR in REQUESTS_CA_BUNDLE SSL_CERT_FILE; do
 done
 
 echo -e "${YELLOW}正在啟動後端服務...${NC}"
-HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --log-level info > logs/backend.log 2>&1 &
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uvicorn backend.main:app --host 127.0.0.1 --port "$BACKEND_PORT" --log-level info > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 
 # Wait a second to check if backend started successfully
@@ -56,7 +59,7 @@ fi
 echo -e "${YELLOW}正在啟動前端服務...${NC}"
 if [ -d "frontend" ]; then
     cd frontend
-    npm run dev > ../logs/frontend.log 2>&1 &
+    env MOF_FRONTEND_PORT="$FRONTEND_PORT" MOF_BACKEND_PORT="$BACKEND_PORT" npm run dev > ../logs/frontend.log 2>&1 &
     FRONTEND_PID=$!
     cd ..
 else
@@ -77,9 +80,9 @@ fi
 
 echo -e "\n${BLUE}========================================${NC}"
 echo -e "${GREEN} 服務啟動完畢！可用連結：${NC}"
-echo -e " - ${BLUE}後端 API${NC}: http://localhost:8000"
-echo -e " - ${BLUE}前端介面${NC}: http://localhost:3000 (Vite 設定的 Port)"
-echo -e " - ${BLUE}API 文件${NC}: http://localhost:8000/api/docs"
+echo -e " - ${BLUE}後端 API${NC}: http://localhost:${BACKEND_PORT}"
+echo -e " - ${BLUE}前端介面${NC}: http://localhost:${FRONTEND_PORT} (Vite 設定的 Port)"
+echo -e " - ${BLUE}API 文件${NC}: http://localhost:${BACKEND_PORT}/api/docs"
 echo -e "${YELLOW} 按 [Ctrl+C] 可同時關閉前端與後端服務${NC}"
 echo -e "${BLUE}========================================${NC}\n"
 
